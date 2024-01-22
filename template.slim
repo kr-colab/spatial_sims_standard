@@ -73,12 +73,11 @@ reproduction(){
 	mate = i2.drawByStrength(individual, 1);
 	if (mate.size()) {
 		nOff = rpois(1, FECUN);
-		potential_locs = subpop.pointDeviated(nOff, individual.spatialPosition, "none", 3 * SD, "n", SD);
-		inbound = p1.pointInBounds(potential_locs);
-		nOff_inbound = sum(inbound);
-		offsprings = subpop.addCrossed(individual, mate, count = nOff_inbound);
-		offsprings.setSpatialPosition(potential_locs[repEach(inbound, 2)]);
-	
+		offsprings = subpop.addCrossed(individual, mate, count = nOff);
+		// Can choose different kernel, boundary conditions when choosing locations for the offspring
+		// (Check out `pointDeviated' in SLiM 4.1 manual)
+		locations = subpop.pointDeviated(nOff, individual.spatialPosition, "reflecting", 3 * SD, "n", SD);
+		offsprings.setSpatialPosition(locations);
 	}
 }
 
