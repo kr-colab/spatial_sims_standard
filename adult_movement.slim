@@ -1,0 +1,128 @@
+initialize() {
+	initializeSLiMModelType("nonWF");
+	initializeSLiMOptions(dimensionality="xy");
+	// initializeTreeSeq();
+	//	initializeSex("A");    // uncomment this for female-male distinction	
+	
+	
+	// Put all of your default parameters in the dictionary here. 
+	// It will read the params.json file and overwrite.
+	defaults = Dictionary(
+		"seed", getSeed(),
+		"SD", 0.3, // sigma_D, dispersal distance
+		"SI", 0.3, // sigma_I, interaction distance for competition
+		"SM", 0.3, // sigma_M, mate choice distance
+		"SV", 0.0, // sigma_V, adult movement distance (defaults to none)
+		"K", 5, // carrying capacity per unit square
+		"LIFETIME", 4, // average life span
+		"WIDTH", 25.0, // width of the simulated area
+		"HEIGHT", 25.0, // height of the simulated area
+		"RUNTIME", 200, // total number of ticks to run the simulation for
+		"L", 1e8, // genome length
+		"R", 1e-8, // recombination rate (per tick)
+		"MU", 1e-8, // mutation rate (per tick)
+		"OUTDIR", exists("OUTDIR") ? OUTDIR else ".",
+		"PARAMFILE", exists("PARAMFILE") ? PARAMFILE else "./params.json"
+		);
+	if (fileExists(defaults.getValue("PARAMFILE"))){
+		local_defaults = Dictionary(paste(readFile(defaults.getValue("PARAMFILE")), sep="\n"));
+		defaults.addKeysAndValuesFrom(local_defaults);
+		defaults.setValue("read_from_paramfile", defaults.getValue("PARAMFILE"));
+	}
+	defaults.setValue("OUTBASE", defaults.getValue("OUTDIR") + "/out_" + defaults.getValue("seed"));
+	defaults.setValue("OUTPATH", defaults.getValue("OUTBASE") + ".trees");
+	
+	catn("-------------\n");
+	for (k in defaults.allKeys) {
+		if (!exists(k)) {
+			defineConstant(k, defaults.getValue(k));
+		} else {
+			defaults.setValue(k, executeLambda(paste(c(k, ";"), sep='')));
+		}
+		catn("  " + k + ": " + defaults.getValue(k));
+	}
+	catn("-------------\n");
+	defineGlobal("params", defaults);
+	defineConstant("FECUN", 1/LIFETIME);
+	defineConstant("RHO", FECUN/((1+FECUN)*K));
+	setSeed(seed);
+	
+	initializeMutationRate(MU);
+	initializeMutationType("m1", 0.5, "f", 0.0);
+	initializeGenomicElementType("g1", m1, 1.0);
+	initializeGenomicElement(g1, 0, L-1);
+	initializeRecombinationRate(R);
+	
+	
+	
+	// spatial interaction for local competition
+	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=3*SI);
+	// define shape of interaction kernel here (e.g. normal distribution)
+	i1.setInteractionFunction("n", 1.0/sqrt(2*PI*SI^2), SI);
+	
+	// mate choice
+	initializeInteractionType(2, "xy", reciprocal=T, maxDistance=3*SM);
+	// define shape of mate choice kernel 
+	i2.setInteractionFunction("n", 1.0/sqrt(2*PI*SM^2), SM);
+	// if offspring only disperse from female, uncomment these lines below:
+	//	i2.setConstraints("receiver", sex="F");
+	//	i2.setConstraints("exerter", sex="M");
+}
+
+// define reproduction here (replace reproduction() with reproduction(NULL, "F") if offspring only disperse from females
+reproduction(){
+	mate = i2.drawByStrength(individual, 1);
+	if (mate.size()) {
+		nOff = rpois(1, FECUN);
+		offsprings = subpop.addCrossed(individual, mate, count = nOff);
+		// Can choose different kernel, boundary conditions when choosing locations for the offspring
+		// (Check out `pointDeviated' in SLiM 4.1 manual)
+		locations = subpop.pointDeviated(nOff, individual.spatialPosition, "reflecting", 3 * SD, "n", SD);
+		offsprings.setSpatialPosition(locations);
+	}
+}
+
+1 first() {
+	sim.addSubpop("p1", asInteger(K * WIDTH * HEIGHT));
+	p1.setSpatialBounds(c(0, 0, WIDTH, HEIGHT));
+	p1.individuals.setSpatialPosition(p1.pointUniform(p1.individualCount));
+	community.rescheduleScriptBlock(s1, ticks=RUNTIME);
+}
+
+// adult movement block (absorbing boundaries, Gaussian kernel with sigma_V)
+1: first() {
+	if (SV > 0) {
+		for(ind in sim.subpopulations.individuals){
+			do{
+				pos = p1.pointDeviated(1, ind.spatialPosition, "none", INF, "n", SV);
+			}
+			
+			while(!p1.pointInBounds(pos));
+			ind.setSpatialPosition(pos);
+		}
+	}
+}
+
+first() {
+	i2.evaluate(p1);
+}
+
+early() {
+	i1.evaluate(p1);
+	inds = p1.individuals;
+	competition = i1.localPopulationDensity(inds);
+	inds.fitnessScaling = 1/(1+RHO*competition);
+}
+
+late() {
+	if ((p1.individualCount == 0)){
+		catn("Population went extinct! Ending the simulation");
+		sim.simulationFinished();
+	}
+}
+
+s1 late() {
+	catn("End of simulation (run time reached)");
+	// sim.treeSeqOutput(OUTPATH, metadata=params);
+	sim.simulationFinished();
+}
