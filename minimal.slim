@@ -2,7 +2,6 @@ initialize() {
 	initializeSLiMModelType("nonWF");
 	initializeSLiMOptions(dimensionality="xy");
 	initializeTreeSeq();
-	//	initializeSex("A");    // uncomment this for female-male distinction	
 	
 	
 	// Put all of your default parameters in the dictionary here. 
@@ -63,12 +62,8 @@ initialize() {
 	initializeInteractionType(2, "xy", reciprocal=T, maxDistance=3*SM);
 	// define shape of mate choice kernel 
 	i2.setInteractionFunction("n", 1.0/sqrt(2*PI*SM^2), SM);
-	// if offspring only disperse from female, uncomment these lines below:
-	//	i2.setConstraints("receiver", sex="F");
-	//	i2.setConstraints("exerter", sex="M");
 }
-
-// define reproduction here (replace reproduction() with reproduction(NULL, "F") if offspring only disperse from females
+// define reproduction here  
 reproduction(){
 	mate = i2.drawByStrength(individual, 1);
 	if (mate.size()) {
@@ -80,18 +75,20 @@ reproduction(){
 		offsprings.setSpatialPosition(locations);
 	}
 }
-
 1 first() {
 	sim.addSubpop("p1", asInteger(K * WIDTH * HEIGHT));
 	p1.setSpatialBounds(c(0, 0, WIDTH, HEIGHT));
-	p1.individuals.setSpatialPosition(p1.pointUniform(p1.individualCount));
+// Start spatial simulation by placing individuals uniformly in space	p1.individuals.setSpatialPosition(p1.pointUniform(p1.individualCount));
+// Declare when to stop simulation here
 	community.rescheduleScriptBlock(s1, ticks=RUNTIME);
 }
 
+// Find mates first thing at each tick
 first() {
 	i2.evaluate(p1);
 }
 
+// Local competition happens next, and it controls density through fitness rescaling.
 early() {
 	i1.evaluate(p1);
 	inds = p1.individuals;
