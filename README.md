@@ -1,13 +1,23 @@
-# spatial_sims_standard
-standardizing spatial simulation slim scripts with a template
+# Standardizing spatial simulations on SLiM
+We demonstrate several spatial simulation scripts that can (hopefully) be modified easily by users for their ecological scenarios in mind.
 
-Callbacks (in the minimal example)
+List of examples:
+- selection
+- maps
+- adult movement
+- mate choice
+- case studies
 
-1. Setting up parameters
-2. Initialize interactions (include sex, etc)
-3. tick 1 first - putting in map
-4. reproduction (includes dispersal)
-5. competition (density control)
-6. output
+In the main directory, we have a minimal example of hermaphrodites on a blank map.
+Here is what each code block does:
+## Setting up parameters
+
+   
+## Initialize interactions (include sex, etc)
+## tick 1 first - putting in map
+## reproduction (includes dispersal)
+
+## competition (density control)
+## output
 
 Other subdirectories will have their own readme.
