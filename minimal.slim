@@ -3,9 +3,6 @@ initialize() {
 	initializeSLiMOptions(dimensionality="xy");
 	initializeTreeSeq();
 	
-	
-	// Put all of your default parameters in the dictionary here. 
-	// It will read the params.json file and overwrite.
 	defaults = Dictionary(
 		"seed", getSeed(),
 		"SD", 0.3, // sigma_D, dispersal distance
@@ -27,7 +24,7 @@ initialize() {
 		defaults.addKeysAndValuesFrom(local_defaults);
 		defaults.setValue("read_from_paramfile", defaults.getValue("PARAMFILE"));
 	}
-	defaults.setValue("OUTBASE", defaults.getValue("OUTDIR") + "/out_" + defaults.getValue("seed"));
+	defaults.setValue("OUTBASE", defaults.getValue("OUTDIR") + "/out_" +	defaults.getValue("seed"));
 	defaults.setValue("OUTPATH", defaults.getValue("OUTBASE") + ".trees");
 	
 	catn("-------------\n");
@@ -40,7 +37,7 @@ initialize() {
 		catn("  " + k + ": " + defaults.getValue(k));
 	}
 	catn("-------------\n");
-	defineGlobal("params", defaults);
+	defineGlobal("PARAMS", defaults);
 	defineConstant("FECUN", 1/LIFETIME);
 	defineConstant("RHO", FECUN/((1+FECUN)*K));
 	setSeed(seed);
@@ -63,14 +60,12 @@ initialize() {
 	// define shape of mate choice kernel 
 	i2.setInteractionFunction("n", 1.0/sqrt(2*PI*SM^2), SM);
 }
-// define reproduction here  
+
 reproduction(){
 	mate = i2.drawByStrength(individual, 1);
 	if (mate.size()) {
 		nOff = rpois(1, FECUN);
 		offsprings = subpop.addCrossed(individual, mate, count = nOff);
-		// Can choose different kernel, boundary conditions when choosing locations for the offspring
-		// (Check out `pointDeviated' in SLiM 4.1 manual)
 		locations = subpop.pointDeviated(nOff, individual.spatialPosition, "reflecting", 3 * SD, "n", SD);
 		offsprings.setSpatialPosition(locations);
 	}
@@ -78,17 +73,14 @@ reproduction(){
 1 first() {
 	sim.addSubpop("p1", asInteger(K * WIDTH * HEIGHT));
 	p1.setSpatialBounds(c(0, 0, WIDTH, HEIGHT));
-// Start spatial simulation by placing individuals uniformly in space	p1.individuals.setSpatialPosition(p1.pointUniform(p1.individualCount));
-// Declare when to stop simulation here
+	p1.individuals.setSpatialPosition(p1.pointUniform(p1.individualCount));
 	community.rescheduleScriptBlock(s1, ticks=RUNTIME);
 }
 
-// Find mates first thing at each tick
 first() {
 	i2.evaluate(p1);
 }
 
-// Local competition happens next, and it controls density through fitness rescaling.
 early() {
 	i1.evaluate(p1);
 	inds = p1.individuals;
@@ -105,6 +97,6 @@ late() {
 
 s1 late() {
 	catn("End of simulation (run time reached)");
-	sim.treeSeqOutput(OUTPATH, metadata=params);
+	sim.treeSeqOutput(OUTPATH, metadata=PARAMS);
 	sim.simulationFinished();
 }
