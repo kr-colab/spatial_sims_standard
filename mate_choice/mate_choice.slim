@@ -2,6 +2,7 @@ initialize() {
 	initializeSLiMModelType("nonWF");
 	initializeSLiMOptions(dimensionality="xy");
 	initializeTreeSeq();
+	initializeSex("A");		// individuals are either male or female (dieocy)
 	
 	defaults = Dictionary(
 		"seed", getSeed(),
@@ -56,20 +57,24 @@ initialize() {
 	i1.setInteractionFunction("n", 1.0/sqrt(2*PI*SI^2), SI);
 	
 	// mate choice
-	initializeInteractionType(2, "xy", reciprocal=T, maxDistance=3*SM);
+	initializeInteractionType(2, "xy", maxDistance=3*SM);
 	// define shape of mate choice kernel 
 	i2.setInteractionFunction("n", 1.0/sqrt(2*PI*SM^2), SM);
+	// model female choosiness, where offspring only disperse from females
+	i2.setConstraints("receiver", sex="F");
+	i2.setConstraints("exerter", sex="M");
 }
 
-reproduction(){
+reproduction(NULL, "F"){			// females choose a male mate
 	mate = i2.drawByStrength(individual, 1);
 	if (mate.size()) {
-		nOff = rpois(1, FECUN);
-		offsprings = subpop.addCrossed(individual, mate, count=nOff);
+		nOff = rpois(1, 2 * FECUN);	// fecundity is doubled because only females reproduce
+		offsprings = subpop.addCrossed(individual, mate, count = nOff);
 		locations = subpop.pointDeviated(nOff, individual.spatialPosition, "reflecting", 3*SD, "n", SD);
 		offsprings.setSpatialPosition(locations);
 	}
 }
+
 1 first() {
 	sim.addSubpop("p1", asInteger(K*WIDTH*HEIGHT));
 	p1.setSpatialBounds(c(0, 0, WIDTH, HEIGHT));
@@ -78,7 +83,7 @@ reproduction(){
 }
 
 first() {
-	i2.evaluate(p1);
+	i2.evaluate(p1);  // evaluate mate choice interaction values
 }
 
 early() {
