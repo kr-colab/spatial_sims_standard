@@ -15,7 +15,7 @@ initialize() {
 		"RUNTIME", 200, // total number of ticks to run the simulation for
 		"L", 1e8, // genome length
 		"R", 1e-8, // recombination rate (per tick)
-		"MU", 1e-8, // mutation rate (per tick)
+		"MU", 0, // mutation rate (per tick)
 		"OUTDIR", exists("OUTDIR") ? OUTDIR else ".",
 		"PARAMFILE", exists("PARAMFILE") ? PARAMFILE else "./params.json"
 		);
@@ -65,13 +65,13 @@ reproduction(){
 	mate = i2.drawByStrength(individual, 1);
 	if (mate.size()) {
 		nOff = rpois(1, FECUN);
-		offsprings = subpop.addCrossed(individual, mate, count = nOff);
-		locations = subpop.pointDeviated(nOff, individual.spatialPosition, "reflecting", 3 * SD, "n", SD);
+		offsprings = subpop.addCrossed(individual, mate, count=nOff);
+		locations = subpop.pointDeviated(nOff, individual.spatialPosition, "reflecting", 3*SD, "n", SD);
 		offsprings.setSpatialPosition(locations);
 	}
 }
 1 first() {
-	sim.addSubpop("p1", asInteger(K * WIDTH * HEIGHT));
+	sim.addSubpop("p1", asInteger(K*WIDTH*HEIGHT));
 	p1.setSpatialBounds(c(0, 0, WIDTH, HEIGHT));
 	p1.individuals.setSpatialPosition(p1.pointUniform(p1.individualCount));
 	community.rescheduleScriptBlock(s1, ticks=RUNTIME);
