@@ -1,35 +1,96 @@
-// Hi!  All my comments are marked with "BCH:" but I made a couple of edits also, I think.  :->
-
 initialize() {
 	initializeSLiMModelType("nonWF");
 	initializeSLiMOptions(dimensionality="xy");
-	initializeTreeSeq();	// BCH: for the minimal model, is tree-seq needed?  I know you guys use it for your analysis and such, but as a minimal demo for the reader, is there a reason for it to be enabled?
-
-	// BCH: I think I expressed this a while ago: this parameter scheme seems really complicated, and takes up about half
-	// of the total script.  It will make it much harder for the user to see what we're actually trying to show in the
-	// examples.  Does it really need to be so complex?  There seem to be at least four different ways that particular
-	// parameters are handled in this scheme: like "SD", like "OUTDIR", like "OUTBASE", and like "FECUN".  Those four
-	// types get defined/loaded/overridden/redefined in different ways, making it very confusing.  Can they all be handled
-	// more similarly?  And can much/all of this parameter-handling complexity be put into a user-defined function in some manner,
-	// so that it is (a) clearly isolated/encapsulated, (b) more easily reused, and (c) can be at the end of the file
-	// instead of the beginning?  It is really not ideal for the reader to have to get through more than a page of
-	// parameter-juggling before they get to any of the spatial code.
 	defaults = Dictionary(
 		"seed", getSeed(),
 		"SD", 0.3, // sigma_D, dispersal distance
-		"SI", 0.3, // sigma_I, interaction distance for competition	// BCH: how about SC, competition distance?  mate choice is an "interaction" also...
+		"SI", 0.3, // sigma_I, interaction distance for competition	
 		"SM", 0.3, // sigma_M, mate choice distance
-		"K", 5, // carrying capacity per unit square	// BCH: "per unit area"?
+		"K", 5, // carrying capacity per unit area
 		"LIFETIME", 4, // average life span
 		"WIDTH", 25.0, // width of the simulated area
 		"HEIGHT", 25.0, // height of the simulated area
 		"RUNTIME", 200, // total number of ticks to run the simulation for
 		"L", 1e8, // genome length
-		"R", 1e-8, // recombination rate (per tick)	// BCH: no need to say "per tick"; and anyway it is per position per genome per tick, really...
-		"MU", 0, // mutation rate (per tick)		// BCH: as previous; and if you keep tree-sequence recording, might be better to say "non-neutral mutation rate" to be clear that neutral mutations are not modeled here
+		"R", 1e-8, // recombination rate
+		"MU", 0, // mutation rate
 		"OUTDIR", exists("OUTDIR") ? OUTDIR else ".",
 		"PARAMFILE", exists("PARAMFILE") ? PARAMFILE else "./params.json"
 		);
+	
+	setupParams(defaults);
+	
+	// Set up parameters that depend on other parameters and add it to parameter dictionary
+	
+	defineConstant("FECUN", 1 / LIFETIME);
+	defaults.addKeysAndValuesFrom(Dictionary("FECUN", FECUN));
+	defineConstant("RHO", FECUN / ((1 + FECUN) * K));
+	defaults.addKeysAndValuesFrom(Dictionary("RHO", RHO));
+	defineGlobal("PARAMS", defaults);
+	
+	setSeed(seed);
+	
+	initializeMutationRate(MU);
+	initializeMutationType("m1", 0.5, "f", 0.0);
+	initializeGenomicElementType("g1", m1, 1.0);
+	initializeGenomicElement(g1, 0, L-1);
+	initializeRecombinationRate(R);
+	
+	// spatial interaction for local competition
+	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=3 * SI);
+	i1.setInteractionFunction("n", 1., SI);
+	// mate choice
+	initializeInteractionType(2, "xy", reciprocal=T, maxDistance=3 * SM);
+	i2.setInteractionFunction("n", 1., SM);
+}
+
+1 first() {
+	sim.addSubpop("p1", asInteger(K*WIDTH*HEIGHT));
+	p1.setSpatialBounds(c(0, 0, WIDTH, HEIGHT));
+	p1.individuals.setSpatialPosition(p1.pointUniform(p1.individualCount));
+	community.rescheduleScriptBlock(s1, ticks=RUNTIME);
+}
+
+first() {
+	// "preparation for the reproduction() callback".
+	i2.evaluate(p1);
+}
+
+reproduction(){
+	mate = i2.drawByStrength(individual, 1);
+	if (mate.size()) {
+		offsprings = subpop.addCrossed(individual, mate, count=rpois(1, FECUN));
+	}
+}
+
+early() {
+	// Disperse offsprings
+	offsprings = p1.subsetIndividuals(maxAge = 0);
+	pos = offsprings.spatialPosition;
+	pos = p1.pointDeviated(offsprings.size(), pos, "reprising", INF, "n", SD);
+	offsprings.setSpatialPosition(pos);
+	
+	i1.evaluate(p1);
+	inds = p1.individuals;
+	competition = i1.localPopulationDensity(inds);
+	inds.fitnessScaling = 1 / (1 + RHO * competition);
+}
+
+late() {
+	if (p1.individualCount == 0) {
+		catn("Population went extinct! Ending the simulation.");
+		sim.simulationFinished();
+	}
+}
+
+s1 late() {
+	catn("End of simulation (run time reached)");
+	sim.simulationFinished();
+}
+
+
+function (void)setupParams(object<Dictionary>$ defaults)
+{
 	if (fileExists(defaults.getValue("PARAMFILE"))){
 		local_defaults = Dictionary(paste(readFile(defaults.getValue("PARAMFILE")), sep="\n"));
 		defaults.addKeysAndValuesFrom(local_defaults);
@@ -43,82 +104,8 @@ initialize() {
 		if (!exists(k)) {
 			defineConstant(k, defaults.getValue(k));
 		} else {
-			defaults.setValue(k, executeLambda(paste(c(k, ";"), sep='')));	// BCH: this is rather ugly; above, for "OUTDIR" for example, you just use exists() inside the defaults dictionary definition; is there a reason not to do that for all of them, rather than doing what you're doing here?
-		}
-		catn("  " + k + ": " + defaults.getValue(k));	// BCH: once the dictionary is assembled, you could just print it, or print the result of a serialize() call on it...?
+			defaults.setValue(k, executeLambda(paste(c(k, ";"), sep='')));			}
+		catn("  " + k + ": " + defaults.getValue(k));
 	}
 	catn("-------------\n");
-	defineGlobal("PARAMS", defaults);
-	defineConstant("FECUN", 1 / LIFETIME);		// BCH: even if these need to be defined differently (because they depend upon other parameters), maybe they should be in the PARAMS dictionary, so all parameters are referenced in the same way in the code?
-	defineConstant("RHO", FECUN / ((1 + FECUN) * K));	// BCH: I like spaces around operators in most cases; if you agree, then change throughout.  I think it's easier to read, and avoids bugs due to incorrect reading of expressions.
-	setSeed(seed);
-	
-	initializeMutationRate(MU);
-	initializeMutationType("m1", 0.5, "f", 0.0);
-	initializeGenomicElementType("g1", m1, 1.0);
-	initializeGenomicElement(g1, 0, L-1);
-	initializeRecombinationRate(R);
-	
-	// spatial interaction for local competition
-	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=3*SI);
-	// define shape of interaction kernel here (e.g. normal distribution)	// BCH: this comment seems unnecessary...?
-	i1.setInteractionFunction("n", 1.0/sqrt(2*PI*SI^2), SI);		// BCH: is the rescaling here needed?  you use this with drawByStrength(), which is relative weights anyway; this is just unnecessary complexity, isn't it?
-	
-	// mate choice
-	initializeInteractionType(2, "xy", reciprocal=T, maxDistance=3*SM);
-	// define shape of mate choice kernel 					// BCH: as for i1
-	i2.setInteractionFunction("n", 1.0/sqrt(2*PI*SM^2), SM);		// as for i1, except localPopulationDensity() - also doesn't need the rescaling, right?
 }
-
-reproduction(){
-	mate = i2.drawByStrength(individual, 1);
-	if (mate.size()) {
-		nOff = rpois(1, FECUN);		// might just put this right into the "count="; no need for a new variable, which is less efficient
-		offsprings = subpop.addCrossed(individual, mate, count=nOff);
-
-		// BCH: this is not wrong, but it is quite inefficient compared to bulk-setting all offspring positions
-		// after reproduction is complete, in an early() event; let me know if you're not sure how to do that.
-		// If the paper goes out after SLiM 4.2 has shipped (probably mid-March to mid-April), there is an
-		// even more efficient way with a new method, deviatePositions(), slated for addition in 4.2.
-		locations = subpop.pointDeviated(nOff, individual.spatialPosition, "reflecting", 3*SD, "n", SD);	// do you in fact want a max dispersal distance of 3*SD, instead of INF?  for InteractionType kernels, it is necessary to cut them off at a max distance for efficiency; but for dispersal, there is no efficiency consequence to using INF
-		offsprings.setSpatialPosition(locations);
-	}
-}
-
-1 first() {
-	sim.addSubpop("p1", asInteger(K*WIDTH*HEIGHT));
-	p1.setSpatialBounds(c(0, 0, WIDTH, HEIGHT));
-	p1.individuals.setSpatialPosition(p1.pointUniform(p1.individualCount));
-	community.rescheduleScriptBlock(s1, ticks=RUNTIME);
-}
-
-first() {
-	// BCH: it is not clear why this call is done here, reading the script top to bottom.  This is why I recommend
-	// putting first() events above reproduction() callbacks; if the script were reordered that way, so
-	// that the tick cycle order could be read from top to bottom, this would probably be clear enough
-	// not to require a comment.  If you want to keep it here, I think it requires a comment, like
-	// "preparation for the reproduction() callback".
-	i2.evaluate(p1);
-}
-
-early() {
-	i1.evaluate(p1);
-	inds = p1.individuals;
-	competition = i1.localPopulationDensity(inds);
-	inds.fitnessScaling = 1/(1+RHO*competition);
-}
-
-late() {
-	if (p1.individualCount == 0) {
-		catn("Population went extinct! Ending the simulation.");
-		sim.simulationFinished();
-	}
-}
-
-s1 late() {
-	catn("End of simulation (run time reached)");
-	sim.treeSeqOutput(OUTPATH, metadata=PARAMS);	// BCH: again, is tree-seq needed for this example model?  not sure exactly how you guys plan to use this model in the paper.
-	sim.simulationFinished();
-}
-
-// BCH: OK, that's everything I can think of.  You might want more comments in this file, like "// Implement spatial density-dependence due to local competition" and such...?
