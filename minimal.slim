@@ -1,10 +1,12 @@
 initialize() {
 	initializeSLiMModelType("nonWF");
 	initializeSLiMOptions(dimensionality="xy");
+	
+	
 	defaults = Dictionary(
 		"seed", getSeed(),
 		"SD", 0.3, // sigma_D, dispersal distance
-		"SI", 0.3, // sigma_I, interaction distance for competition	
+		"SI", 0.3, // sigma_I, interaction distance for competition
 		"SM", 0.3, // sigma_M, mate choice distance
 		"K", 5, // carrying capacity per unit area
 		"LIFETIME", 4, // average life span
@@ -13,19 +15,16 @@ initialize() {
 		"RUNTIME", 200, // total number of ticks to run the simulation for
 		"L", 1e8, // genome length
 		"R", 1e-8, // recombination rate
-		"MU", 0, // mutation rate
-		"OUTDIR", exists("OUTDIR") ? OUTDIR else ".",
-		"PARAMFILE", exists("PARAMFILE") ? PARAMFILE else "./params.json"
+		"MU", 0 // mutation rate
 		);
 	
+	// Set up parameters with a user-defined function
 	setupParams(defaults);
 	
-	// Set up parameters that depend on other parameters and add it to parameter dictionary
+	// Set up constants that depend on externally defined parameters
 	
 	defineConstant("FECUN", 1 / LIFETIME);
-	defaults.addKeysAndValuesFrom(Dictionary("FECUN", FECUN));
 	defineConstant("RHO", FECUN / ((1 + FECUN) * K));
-	defaults.addKeysAndValuesFrom(Dictionary("RHO", RHO));
 	defineGlobal("PARAMS", defaults);
 	
 	setSeed(seed);
@@ -38,10 +37,10 @@ initialize() {
 	
 	// spatial interaction for local competition
 	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=3 * SI);
-	i1.setInteractionFunction("n", 1., SI);
+	i1.setInteractionFunction("n", 1, SI);
 	// mate choice
 	initializeInteractionType(2, "xy", reciprocal=T, maxDistance=3 * SM);
-	i2.setInteractionFunction("n", 1., SM);
+	i2.setInteractionFunction("n", 1, SM);
 }
 
 1 first() {
@@ -52,7 +51,7 @@ initialize() {
 }
 
 first() {
-	// "preparation for the reproduction() callback".
+	// preparation for the reproduction() callback
 	i2.evaluate(p1);
 }
 
@@ -64,12 +63,13 @@ reproduction(){
 }
 
 early() {
-	// Disperse offsprings
-	offsprings = p1.subsetIndividuals(maxAge = 0);
-	pos = offsprings.spatialPosition;
-	pos = p1.pointDeviated(offsprings.size(), pos, "reprising", INF, "n", SD);
-	offsprings.setSpatialPosition(pos);
+	// Disperse offspring
+	offspring = p1.subsetIndividuals(maxAge = 0);
+	pos = offspring.spatialPosition;
+	pos = p1.pointDeviated(offspring.size(), pos, "reprising", INF, "n", SD);
+	offspring.setSpatialPosition(pos);
 	
+	// Measure local density and use it for density regulation
 	i1.evaluate(p1);
 	inds = p1.individuals;
 	competition = i1.localPopulationDensity(inds);
@@ -91,13 +91,15 @@ s1 late() {
 
 function (void)setupParams(object<Dictionary>$ defaults)
 {
-	if (fileExists(defaults.getValue("PARAMFILE"))){
-		local_defaults = Dictionary(paste(readFile(defaults.getValue("PARAMFILE")), sep="\n"));
+	if (!exists("PARAMFILE")) defineConstant("PARAMFILE", "./params.json");
+	defaults.addKeysAndValuesFrom(Dictionary("PARAMFILE", PARAMFILE));
+	
+	if (fileExists(PARAMFILE)){
+		local_defaults = Dictionary(readFile(PARAMFILE), sep="\n");
 		defaults.addKeysAndValuesFrom(local_defaults);
-		defaults.setValue("read_from_paramfile", defaults.getValue("PARAMFILE"));
+		defaults.setValue("read_from_paramfile", PARAMFILE);
 	}
-	defaults.setValue("OUTBASE", defaults.getValue("OUTDIR") + "/out_" +	defaults.getValue("seed"));
-	defaults.setValue("OUTPATH", defaults.getValue("OUTBASE") + ".trees");
+	
 	
 	catn("-------------\n");
 	for (k in defaults.allKeys) {
