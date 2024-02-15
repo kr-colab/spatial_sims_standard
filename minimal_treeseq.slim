@@ -58,9 +58,8 @@ first() {
 
 reproduction(){
 	mate = i2.drawByStrength(individual, 1);
-	if (mate.size()) {
+	if (mate.size())
 		offsprings = subpop.addCrossed(individual, mate, count=rpois(1, FECUN));
-	}
 }
 
 early() {
