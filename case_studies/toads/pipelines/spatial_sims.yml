@@ -1,0 +1,18 @@
+name: spatial_sims
+channels:
+  - conda-forge
+  - anaconda
+  - bioconda
+dependencies:
+  - numpy
+  - pandas
+  - snakemake
+  - slim
+  - msprime
+  - tskit
+  - ipykernel
+  - scipy
+  - matplotlib
+  - geopandas
+  - rasterio
+

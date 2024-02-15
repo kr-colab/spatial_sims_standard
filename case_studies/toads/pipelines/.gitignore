@@ -1,0 +1,5 @@
+.snakemake/
+AUS_2021_AUST_GDA2020.*
+cane_toads_gbif.csv
+wc2.1_10m_bio_*
+
