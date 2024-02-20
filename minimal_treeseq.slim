@@ -105,13 +105,18 @@ function (void)setupParams(object<Dictionary>$ defaults)
 	defaults.setValue("OUTBASE", OUTDIR + "/out_" +	defaults.getValue("seed"));
 	defaults.setValue("OUTPATH", defaults.getValue("OUTBASE") + ".trees");
 	
-	catn("-------------\n");
 	for (k in defaults.allKeys) {
 		if (!exists(k)) {
 			defineConstant(k, defaults.getValue(k));
-		} else {
-			defaults.setValue(k, executeLambda(paste(c(k, ";"), sep='')));			}
-		catn("  " + k + ": " + defaults.getValue(k));
+		}
+		else {
+			defaults.setValue(k, executeLambda(paste(c(k, ";"), sep='')));
+		}
 	}
-	catn("-------------\n");
+	
+	// print out default values
+	catn("===========================");
+	catn("Model constants: " + defaults.serialize());
+	catn("===========================");
+
 }
