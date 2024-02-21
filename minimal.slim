@@ -1,12 +1,14 @@
 initialize() {
 	initializeSLiMModelType("nonWF");
 	initializeSLiMOptions(dimensionality="xy");
+	// This model uses tree-sequence recording, but it is optional
+	initializeTreeSeq();
 	
 	
 	defaults = Dictionary(
 		"seed", getSeed(),
 		"SD", 0.3, // sigma_D, dispersal distance
-		"SI", 0.3, // sigma_I, interaction distance for competition
+		"SLD", 0.3, // sigma_LD, interaction distance for measuring local density
 		"SM", 0.3, // sigma_M, mate choice distance
 		"K", 5, // carrying capacity per unit area
 		"LIFETIME", 4, // average life span
@@ -35,16 +37,16 @@ initialize() {
 	initializeGenomicElement(g1, 0, L-1);
 	initializeRecombinationRate(R);
 	
-	// spatial interaction for local competition
-	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=3 * SI);
-	i1.setInteractionFunction("n", 1, SI);
+	// spatial interaction for local density measure
+	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=3 * SLD);
+	i1.setInteractionFunction("n", 1, SLD);
 	// mate choice
 	initializeInteractionType(2, "xy", reciprocal=T, maxDistance=3 * SM);
 	i2.setInteractionFunction("n", 1, SM);
 }
 
 1 first() {
-	sim.addSubpop("p1", asInteger(K*WIDTH*HEIGHT));
+	sim.addSubpop("p1", asInteger(K * WIDTH * HEIGHT));
 	p1.setSpatialBounds(c(0, 0, WIDTH, HEIGHT));
 	p1.individuals.setSpatialPosition(p1.pointUniform(p1.individualCount));
 	community.rescheduleScriptBlock(s1, ticks=RUNTIME);
@@ -84,6 +86,7 @@ late() {
 
 s1 late() {
 	catn("End of simulation (run time reached)");
+	sim.treeSeqOutput(OUTPATH, metadata=PARAMS);
 	sim.simulationFinished();
 }
 
@@ -91,7 +94,8 @@ s1 late() {
 function (void)setupParams(object<Dictionary>$ defaults)
 {
 	if (!exists("PARAMFILE")) defineConstant("PARAMFILE", "./params.json");
-	defaults.addKeysAndValuesFrom(Dictionary("PARAMFILE", PARAMFILE));
+	if (!exists("OUTDIR")) defineConstant("OUTDIR", ".");
+	defaults.addKeysAndValuesFrom(Dictionary("PARAMFILE", PARAMFILE, "OUTDIR", OUTDIR));
 	
 	if (fileExists(PARAMFILE)){
 		local_defaults = Dictionary(readFile(PARAMFILE), sep="\n");
@@ -99,14 +103,21 @@ function (void)setupParams(object<Dictionary>$ defaults)
 		defaults.setValue("read_from_paramfile", PARAMFILE);
 	}
 	
+	defaults.setValue("OUTBASE", OUTDIR + "/out_" +	defaults.getValue("seed"));
+	defaults.setValue("OUTPATH", defaults.getValue("OUTBASE") + ".trees");
 	
-	catn("-------------\n");
 	for (k in defaults.allKeys) {
 		if (!exists(k)) {
 			defineConstant(k, defaults.getValue(k));
-		} else {
-			defaults.setValue(k, executeLambda(paste(c(k, ";"), sep='')));			}
-		catn("  " + k + ": " + defaults.getValue(k));
+		}
+		else {
+			defaults.setValue(k, executeLambda(paste(c(k, ";"), sep='')));
+		}
 	}
-	catn("-------------\n");
+	
+	// print out default values
+	catn("===========================");
+	catn("Model constants: " + defaults.serialize());
+	catn("===========================");
+
 }
