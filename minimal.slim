@@ -8,7 +8,7 @@ initialize() {
 	defaults = Dictionary(
 		"seed", getSeed(),
 		"SD", 0.3, // sigma_D, dispersal distance
-		"SLD", 0.3, // sigma_LD, interaction distance for measuring local density
+		"SX", 0.3, // sigma_X, interaction distance for measuring local density
 		"SM", 0.3, // sigma_M, mate choice distance
 		"K", 5, // carrying capacity per unit area
 		"LIFETIME", 4, // average life span
@@ -38,8 +38,8 @@ initialize() {
 	initializeRecombinationRate(R);
 	
 	// spatial interaction for local density measure
-	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=3 * SLD);
-	i1.setInteractionFunction("n", 1, SLD);
+	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=3 * SX);
+	i1.setInteractionFunction("n", 1, SX);
 	// mate choice
 	initializeInteractionType(2, "xy", reciprocal=T, maxDistance=3 * SM);
 	i2.setInteractionFunction("n", 1, SM);
