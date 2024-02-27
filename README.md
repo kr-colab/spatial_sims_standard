@@ -1,15 +1,20 @@
 # Standardizing spatial simulations on SLiM
 We demonstrate several spatial simulation scripts that can (hopefully) be modified easily by users for their ecological scenarios in mind.
 
-List of examples:
+In the main directory, we have a minimal example of hermaphrodites without age-structure, adult movements, or a map.
+
+List of subdirectories:
 - selection
 - maps
 - adult movement
 - mate choice
 - case studies
 
-In the main directory, we have a minimal example of hermaphrodites without age-structure, adult movements, or a map.
-Other scripts in subdirectory will follow the format of the minimal example but will have some elements that a more realistic simulation requires.
+The scripts in each folder closely follow the format of `minimal.slim` but will have some elements that a more realistic simulation requires.
+
+
+## Setup - install SLiM
+You need SLiM 4.1 to run `.slim` scripts from this repository. Download the latest SLiM and follow the installation instructions for your system (https://messerlab.org/slim/)
 
 ## Initialize - set up parameters
 In `initialize() {...}`, we first declare that the models is non Wright-Fisher and is in two dimension (can be switched to one or three dimension depending on the model).
@@ -24,57 +29,28 @@ We initialize tree sequence because in this example script we use a tree sequenc
 ```
 There are other options for outputs such as vcf, log, etc. There is a chapter on output options in the official SLiM manual.
 
-Then we set up default parameter values including various dispersal distance, interaction distances, carrying capacity, lifetime, etc. 
+Then we define a dictionary called `defaults` storing default values of various parameters of the model we are simulating.
 ```
-	defaults = Dictionary(
-		"seed", getSeed(),
-		"SD", 0.3, // sigma_D, dispersal distance
-		"SI", 0.3, // sigma_I, interaction distance for competition
-		"SM", 0.3, // sigma_M, mate choice distance
-		"K", 5, // carrying capacity per unit square
-		"LIFETIME", 4, // average life span
-		"WIDTH", 25.0, // width of the simulated area
-		"HEIGHT", 25.0, // height of the simulated area
-		"RUNTIME", 200, // total number of ticks to run the simulation for
-		"L", 1e8, // genome length
-		"R", 1e-8, // recombination rate (per tick)
-		"MU", 1e-8, // mutation rate (per tick)
-		"OUTDIR", exists("OUTDIR") ? OUTDIR else ".",
-		"PARAMFILE", exists("PARAMFILE") ? PARAMFILE else "./params.json"
-		);
+    defaults = Dictionary(
+        "seed", getSeed(),
+        "SD", 0.3, // sigma_D, dispersal distance
+        "SX", 0.3, // sigma_X, interaction distance for measuring local density
+        "SM", 0.3, // sigma_M, mate choice distance
+        "K", 5, // carrying capacity per unit area
+        "LIFETIME", 4, // average life span
+        "WIDTH", 25.0, // width of the simulated area
+        "HEIGHT", 25.0, // height of the simulated area
+        "RUNTIME", 200, // total number of ticks to run the simulation for
+        "L", 1e8, // genome length
+        "R", 1e-8, // recombination rate
+        "MU", 0 // mutation rate
+        );
 ```
-To replace some of the values defined as default, we can use a JSON file instead of modifying the slim script directly. 
-In the next line, we let the parameter values to be overwritten by whatever we write in `params.json` in working directory.
-```
-	if (fileExists(defaults.getValue("PARAMFILE"))){
-		local_defaults = Dictionary(paste(readFile(defaults.getValue("PARAMFILE")), sep="\n"));
-		defaults.addKeysAndValuesFrom(local_defaults);
-		defaults.setValue("read_from_paramfile", defaults.getValue("PARAMFILE"));
-	}
-```
-We set where the output file should be saved and use the random seed to name the file.
-```
-	defaults.setValue("OUTBASE", defaults.getValue("OUTDIR") + "/out_" + defaults.getValue("seed"));
-	defaults.setValue("OUTPATH", defaults.getValue("OUTBASE") + ".trees");
-```
-For all keys in the dictionary, defaults, we define a global parameter with the value associated to it. 
-We also print the key and value by using `catn` for visualization. 
-```	
-	catn("-------------\n");
-	for (k in defaults.allKeys) {
-		if (!exists(k)) {
-			defineConstant(k, defaults.getValue(k));
-		} else {
-			defaults.setValue(k, executeLambda(paste(c(k, ";"), sep='')));
-		}
-		catn("  " + k + ": " + defaults.getValue(k));
-	}
-	catn("-------------\n");
-```
-Now define a global object `PARAMS` that will be called at the end of the simulation to be added to the output. 
-```
-	defineGlobal("PARAMS", defaults);
-```
+
+We use a user-defined function, `setupParams` to set up parameter values based on `default` and a JSON file `PARAMFILE`. The `setupParams` is defined at the end of `minimal.slim` from line 94. `PARAMFILE` overwrites any parameter values in `default`. 
+
+TODO : EDIT FROM HERE.
+
 The average fecundity is expected to be 1 / lifetime once the population equilibrates. Therefore, we define FECUN using LIFETIME we defined earlier in the for loop going through all keys of defaults.
 ```
 	defineConstant("FECUN", 1/LIFETIME);
