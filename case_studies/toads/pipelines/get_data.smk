@@ -13,7 +13,7 @@ rule get_aus:
         wget -O temp https://www.abs.gov.au/statistics/standards/australian-statistical-geography-standard-asgs-edition-3/jul2021-jun2026/access-and-downloads/digital-boundary-files/AUS_2021_AUST_SHP_GDA2020.zip
         unzip temp
         mv AUS_2021_AUST_GDA2020* data/
-        rm temp
+        rm -f temp
         """
 
 rule get_gbif:
@@ -24,7 +24,7 @@ rule get_gbif:
         wget -O temp https://api.gbif.org/v1/occurrence/download/request/0229932-220831081235567.zip
         unzip temp
         mv 0229932-220831081235567.csv {output}
-        rm temp
+        rm -f temp
         """
 
 rule get_bioclim:
