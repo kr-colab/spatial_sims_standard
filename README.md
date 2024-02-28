@@ -15,6 +15,7 @@ The scripts in each folder closely follow the format of `minimal.slim` but will 
 
 ## Setup - install SLiM
 You need SLiM 4.1 to run `.slim` scripts from this repository. Download the latest SLiM and follow the installation instructions for your system (https://messerlab.org/slim/)
+Some examples include extra analysis steps outside SLiM for the output files or input maps. 
 
 ## Initialize - set up parameters
 In `initialize() {...}`, we first declare that the models is non Wright-Fisher and is in two dimension (can be switched to one or three dimension depending on the model).
