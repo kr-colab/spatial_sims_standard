@@ -30,18 +30,16 @@ initialize() {
 		"beta", 0.03,                                      	  // slope for p(survival) vs environment
 		"K",  1e3,                                         	  // local density (per sq. km)
 		"SD", 20.0,                                        	  // dispersal distance (km)
-		"SX", 20.0,                                       	  // spatial interaction distance (km)
+		"SX", 20.0,                                       	     // spatial interaction distance (km)
 		"SM", 20.0,                                        	  // the mate choice distance (km)
 		"LIFETIME",  2.0,                                  	  // mean lifetime at stationarity
-		"DF", 3.0,                                         	  // Degrees of freedom t dist, appraoches normal as DF -> INF
-		"OUTDIR", exists("OUTDIR") ? OUTDIR else "."
+		"DF", 3.0                                         	     // Degrees of freedom t dist, appraoches normal as DF -> INF
 		);
 		
 	// Set up parameters with a user-defined function
 	setupParams(defaults);
 
 	//Define constants	
-	defineConstant("TREEOUT", OUTDIR + "/toads.trees");
 	defineConstant("LOCATIONS", OUTDIR + "/locations.txt");
 	defineConstant("WRITE_INDS", asInteger(seq(1, YEARS_N, length = 10)));
 	// Dimensions used for local density calculation	
