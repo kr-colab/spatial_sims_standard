@@ -1,0 +1,180 @@
+// Make mortality depend on both density and age, based on Anopheles life cylce.
+// One can reproduce only after 10 days (eggs to adults maturation time)
+// Average life span : 2 months. Mortality factor increases exponentially with age
+// Females lay 5 to 150 eggs in their life time. Females can reproduce for about 50 days, so I will make fecundity = 2 per day to begin with.
+
+// 1 day = 1 tick
+// For simplicity, carrying capacity doesn't change seasonally. It shouldn't be hard to make map value to be a function of community.tick
+
+
+initialize() {
+	
+	initializeSLiMModelType("nonWF");
+	initializeSLiMOptions(dimensionality="xy");
+	initializeSex("A");
+	
+	
+	if (!exists("SD")) defineConstant("SD", 1000.);  // sigma_D, the dispersal distance
+	if (!exists("SI")) defineConstant("SI", 20.);  // sigma_I, the spatial interaction distance
+	if (!exists("SM")) defineConstant("SM", SD); // sigma_M, the mate choice distance
+	if (!exists("SV")) defineConstant("SV", SD); // sigma_V, travel distance of adults
+	if (!exists("K")) defineConstant("K", 0.004);  // carrying-capacity per unit square (roughly)
+	if (!exists("XMIN")) defineConstant("XMIN", -3.7 * 1000);
+	if (!exists("XMAX")) defineConstant("XMAX", 0.9 * 1000);
+	if (!exists("YMIN")) defineConstant("YMIN", 11.1 * 1000);
+	if (!exists("YMAX")) defineConstant("YMAX", 13.2 * 1000); 
+	if (!exists("ADULTMORTALITY")) defineConstant("ADULTMORTALITY", 0.125);
+	if (!exists("MATURATIONTIME")) defineConstant("MATURATIONTIME", 10); // minimum age when individual can start mating
+	if (!exists("FECUN")) defineConstant("FECUN", 2.); // number of eggs a female lay per day.
+
+	if (!exists("STARTAVGTIME")) defineConstant("STARTAVGTIME", 100); // start averaging CRHO for the final value
+	if (!exists("ENDAVGTIME")) defineConstant("ENDAVGTIME", 150); // end averaging CRHO and fix CRHO to the average value.
+	if (!exists("RECORDTIME")) defineConstant("RECORDTIME", 200); // end averaging CRHO and fix CRHO to the average value.
+
+	if (!exists("RUNTIME")) defineConstant("RUNTIME", 1000);
+	if (!exists("ALPHA")) defineConstant("ALPHA", 0.01);
+	if (!exists("L")) defineConstant("L", 1e8);  // genome length
+	if (!exists("R")) defineConstant("R", 1e-8); // recombination rate
+	if (!exists("MU")) defineConstant("MU", 1e-8); // mutation rate
+	if (!exists("TRIAL")) defineConstant("TRIAL", 1);
+	if (!exists("OUTPATH")) defineConstant("OUTPATH", "data/");
+	defineConstant("image_location", "river.png"); // picture location
+
+	defineConstant("WIDTH", XMAX - XMIN);
+	defineConstant("HEIGHT", YMAX - YMIN);
+	defineConstant("bm", (ADULTMORTALITY^(-1/MATURATIONTIME) - 1)/(FECUN/2-ADULTMORTALITY+(1-ADULTMORTALITY)*(ADULTMORTALITY^(-1/MATURATIONTIME)-1)));	
+	defineConstant("RHO", bm*(1-ADULTMORTALITY+FECUN/2)/(1-bm+bm*ADULTMORTALITY)/K/(1-bm+bm*FECUN/2)); // constant in spatial competition function
+	defineConstant("param_str", "_MATUREAGE_" + format('%d', MATURATIONTIME) + "_FECUN_" + format('%2.0f', FECUN) + "_K_" + format('%2.3f', K) + "_W_" + format('%2.0f', WIDTH) + "_SD_" + format('%.3f', SD) + "_SI_" + format('%.3f', SI) + "_" + format('%d', TRIAL));
+	initializeMutationType("m1", 0.5, "f", 0.0);
+	initializeGenomicElementType("g1", m1, 1.0);
+	initializeGenomicElement(g1, 0, L-1);
+	initializeMutationRate(MU);
+	initializeRecombinationRate(R);
+	
+	// spatial competition
+	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=SI * 3);
+	i1.setInteractionFunction("n", 1.0/sqrt(2*PI*SI^2), SI);
+	i1.setConstraints("both", maxAge = MATURATIONTIME);
+	initializeInteractionType(2, "xy", reciprocal=T, maxDistance=SM * 3);
+	i2.setInteractionFunction("n", 1.0/sqrt(2*PI*SM^2), SM);
+	i2.setConstraints("receiver", sex="F", minAge = MATURATIONTIME + 1);
+	i2.setConstraints("exerter", sex="M", minAge = MATURATIONTIME + 1);
+
+}
+
+
+1 first() {
+	sim.addSubpop("p1", asInteger(2 * K * WIDTH * HEIGHT));
+	p1.setSpatialBounds(c(XMIN, YMIN, XMAX, YMAX));
+	p1.individuals.setSpatialPosition(p1.pointUniform(p1.individualCount));
+
+	mapImage = Image(image_location);
+	map_vals = p1.defineSpatialMap("mapvals", "xy", 
+	(K - K * (mapImage.floatG - min(mapImage.floatG))/(max(mapImage.floatG)-min(mapImage.floatG))), 
+	valueRange = c(0,K), colors = c("black", "white"));
+	defineConstant("RIVER", map_vals);
+	
+
+	community.rescheduleScriptBlock(s1, ENDAVGTIME, RECORDTIME);
+	community.rescheduleScriptBlock(s2, RECORDTIME, RUNTIME);
+
+}
+
+reproduction(p1, "F"){
+	mate = i2.drawByStrength(individual, 1);
+	if (mate.size()){
+		nOff = rpois(1, FECUN);
+		for (i in seqLen(nOff)){
+			pos = RIVER.sampleNearbyPoint(individual.spatialPosition, 3 * SD, "n", SD);
+			if (p1.pointInBounds(pos)){
+				offspring = p1.addCrossed(individual, mate);
+				offspring.setSpatialPosition(pos);
+			}
+		}
+	}
+}
+
+
+
+
+first() {
+	i2.evaluate(p1);
+}
+
+early() {
+	// assume competition is only between larvae. This is a good approximation because larvae can't travel as far.
+	i1.evaluate(p1);
+	
+	juveniles = p1.subsetIndividuals(maxAge = MATURATIONTIME);
+	juveniles.color = '#FF0000';
+	// Using Ricker model for density dependence
+	competition = i1.localPopulationDensity(juveniles);
+
+	location = juveniles.spatialPosition;
+//	RHO_inds = p2.spatialMapValue("RHOmap", location);
+
+	rain_factor = K * (-cos(community.tick/365 * 2 * 3.14) +cos((community.tick-1)/365 * 2 * 3.14)) * 0.5; // In the paper, maximum rain contribution factor to permanent water source is 1:1. 
+	RIVER.add(rain_factor);
+	K_inds = p1.spatialMapValue("mapvals", location);
+	RHO_inds = bm*(1-ADULTMORTALITY+FECUN/2)/(1-bm+bm*ADULTMORTALITY)/K_inds/(1-bm+bm*FECUN/2);
+//	MAPVAL_inds = p2.spatialMapValue("mapvals", location);
+//	RHO_inds = 1 / (K * (MAPVAL_inds + rain_factor)) * (FECUN/4 - ADULTMORTALITY/2) / (1 - (1-ADULTMORTALITY)/2) / (1/2 + FECUN/4);	
+	
+	juveniles.fitnessScaling = 0.95/(1 + RHO_inds * competition); // Density-independent mortality is set to 0.05 in the paper.
+	adults = p1.subsetIndividuals(minAge = MATURATIONTIME + 1);
+	adults.color = '#0000FF';
+	adults.fitnessScaling = 1 - ADULTMORTALITY;
+}
+
+
+
+late() {
+	for (adult in p1.subsetIndividuals(minAge = MATURATIONTIME + 1)) {
+		newpos = adult.spatialPosition + rnorm(2, 0,SV);
+		if (p1.pointInBounds(newpos)){
+			adult.setSpatialPosition(newpos);
+		}
+	}
+
+}
+
+300: late(){
+	if (community.tick % 50 == 0){
+		lines = NULL;
+		for (ind in p1.subsetIndividuals(minAge = MATURATIONTIME + 1))
+		{
+			pos = ind.spatialPosition;
+			coordline = paste0("1, ", pos[0], ", ", pos[1], "\n");
+			lines = c(lines, coordline);
+		}
+		for (ind in p1.subsetIndividuals(maxAge = MATURATIONTIME))
+		{
+			pos = ind.spatialPosition;
+			coordline = paste0("2, ", pos[0], ", ", pos[1], "\n");
+			lines = c(lines, coordline);
+		}
+		csvfile = paste(lines);
+		csvfile = "population, x, y\n" + csvfile;
+		csvfilename = OUTPATH + "coordinates_tick_" + community.tick + param_str + ".csv";
+		if (!writeFile(csvfilename, csvfile))
+			stop("Error writing csv file.");
+	}
+}
+
+
+s1 late(){
+	if (community.tick == RECORDTIME){
+		log_file_title = OUTPATH + "sim_log" + param_str + ".txt";
+		log = community.createLogFile(log_file_title, logInterval = 1);
+		log.addCycle();
+		log.addCustomColumn('adult population size', 'size(p1.subsetIndividuals(minAge = MATURATIONTIME+1));');
+		log.addCustomColumn('juvenile population size', 'size(p1.subsetIndividuals(maxAge = MATURATIONTIME));');
+	}
+}
+s2 late(){
+	if (community.tick == RUNTIME){
+		sim.simulationFinished();
+	}
+
+}
+
