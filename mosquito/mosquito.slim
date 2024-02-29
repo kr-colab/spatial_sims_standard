@@ -1,3 +1,5 @@
+// TODO : move dispersal from reproduction call back to late, clean up recording details.
+
 // Make mortality depend on both density and age, based on Anopheles life cylce.
 // One can reproduce only after 10 days (eggs to adults maturation time)
 // Average life span : 2 months. Mortality factor increases exponentially with age
@@ -8,43 +10,47 @@
 
 
 initialize() {
-	
 	initializeSLiMModelType("nonWF");
 	initializeSLiMOptions(dimensionality="xy");
 	initializeSex("A");
 	
+	defaults = Dictionary(
+		"seed", getSeed(),
+		"SD", 1000., // sigma_D, dispersal distance
+		"SX", 20., // sigma_X, interaction distance for measuring local density
+		"SM", 1000., // sigma_M, mate choice distance
+		"SV", 1000, // sigma_V, adult travel distance
+		"K", 0.004, // carrying capacity per unit area
+		"XMIN", -3.7 * 1000, // map left boundary in meters
+		"XMAX", 0.9 * 1000, // map right boundary
+		"YMIN", 11.1 * 1000, // map bottom boundary
+		"YMAX", 13.2 * 1000, // map top boundary
+		"ADULTMORTALITY", 0.125,
+		"JUVMORTALITY", 0.05, 
+		"FECUN", 2., // average number of eggs per day per female adult
+		"MATURATIONTIME", 10, // minimum age when individuals can start mating
+		"RECORDTIME", 500, 
+		"RUNTIME", 2000, // total number of ticks to run the simulation for
+		"L", 1e8, // genome length
+		"R", 1e-8, // recombination rate
+		"MU", 0 // mutation rate
 	
-	if (!exists("SD")) defineConstant("SD", 1000.);  // sigma_D, the dispersal distance
-	if (!exists("SI")) defineConstant("SI", 20.);  // sigma_I, the spatial interaction distance
-	if (!exists("SM")) defineConstant("SM", SD); // sigma_M, the mate choice distance
-	if (!exists("SV")) defineConstant("SV", SD); // sigma_V, travel distance of adults
-	if (!exists("K")) defineConstant("K", 0.004);  // carrying-capacity per unit square (roughly)
-	if (!exists("XMIN")) defineConstant("XMIN", -3.7 * 1000);
-	if (!exists("XMAX")) defineConstant("XMAX", 0.9 * 1000);
-	if (!exists("YMIN")) defineConstant("YMIN", 11.1 * 1000);
-	if (!exists("YMAX")) defineConstant("YMAX", 13.2 * 1000); 
-	if (!exists("ADULTMORTALITY")) defineConstant("ADULTMORTALITY", 0.125);
-	if (!exists("MATURATIONTIME")) defineConstant("MATURATIONTIME", 10); // minimum age when individual can start mating
-	if (!exists("FECUN")) defineConstant("FECUN", 2.); // number of eggs a female lay per day.
-
-	if (!exists("STARTAVGTIME")) defineConstant("STARTAVGTIME", 100); // start averaging CRHO for the final value
-	if (!exists("ENDAVGTIME")) defineConstant("ENDAVGTIME", 150); // end averaging CRHO and fix CRHO to the average value.
-	if (!exists("RECORDTIME")) defineConstant("RECORDTIME", 200); // end averaging CRHO and fix CRHO to the average value.
-
-	if (!exists("RUNTIME")) defineConstant("RUNTIME", 1000);
-	if (!exists("ALPHA")) defineConstant("ALPHA", 0.01);
-	if (!exists("L")) defineConstant("L", 1e8);  // genome length
-	if (!exists("R")) defineConstant("R", 1e-8); // recombination rate
-	if (!exists("MU")) defineConstant("MU", 1e-8); // mutation rate
-	if (!exists("TRIAL")) defineConstant("TRIAL", 1);
-	if (!exists("OUTPATH")) defineConstant("OUTPATH", "data/");
+	);
+	// Set up parameters with a user-defined function
+	setupParams(defaults);
+	setSeed(seed);
+	
 	defineConstant("image_location", "river.png"); // picture location
 
 	defineConstant("WIDTH", XMAX - XMIN);
 	defineConstant("HEIGHT", YMAX - YMIN);
 	defineConstant("bm", (ADULTMORTALITY^(-1/MATURATIONTIME) - 1)/(FECUN/2-ADULTMORTALITY+(1-ADULTMORTALITY)*(ADULTMORTALITY^(-1/MATURATIONTIME)-1)));	
 	defineConstant("RHO", bm*(1-ADULTMORTALITY+FECUN/2)/(1-bm+bm*ADULTMORTALITY)/K/(1-bm+bm*FECUN/2)); // constant in spatial competition function
-	defineConstant("param_str", "_MATUREAGE_" + format('%d', MATURATIONTIME) + "_FECUN_" + format('%2.0f', FECUN) + "_K_" + format('%2.3f', K) + "_W_" + format('%2.0f', WIDTH) + "_SD_" + format('%.3f', SD) + "_SI_" + format('%.3f', SI) + "_" + format('%d', TRIAL));
+
+
+	defineGlobal("PARAMS", defaults);
+
+
 	initializeMutationType("m1", 0.5, "f", 0.0);
 	initializeGenomicElementType("g1", m1, 1.0);
 	initializeGenomicElement(g1, 0, L-1);
@@ -52,11 +58,11 @@ initialize() {
 	initializeRecombinationRate(R);
 	
 	// spatial competition
-	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=SI * 3);
-	i1.setInteractionFunction("n", 1.0/sqrt(2*PI*SI^2), SI);
+	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=SX * 3);
+	i1.setInteractionFunction("n", 1, SX);
 	i1.setConstraints("both", maxAge = MATURATIONTIME);
 	initializeInteractionType(2, "xy", reciprocal=T, maxDistance=SM * 3);
-	i2.setInteractionFunction("n", 1.0/sqrt(2*PI*SM^2), SM);
+	i2.setInteractionFunction("n", 1, SM);
 	i2.setConstraints("receiver", sex="F", minAge = MATURATIONTIME + 1);
 	i2.setConstraints("exerter", sex="M", minAge = MATURATIONTIME + 1);
 
@@ -71,11 +77,11 @@ initialize() {
 	mapImage = Image(image_location);
 	map_vals = p1.defineSpatialMap("mapvals", "xy", 
 	(K - K * (mapImage.floatG - min(mapImage.floatG))/(max(mapImage.floatG)-min(mapImage.floatG))), 
-	valueRange = c(0,K), colors = c("black", "white"));
+	valueRange = c(0, K), colors = c("black", "white"));
 	defineConstant("RIVER", map_vals);
 	
 
-	community.rescheduleScriptBlock(s1, ENDAVGTIME, RECORDTIME);
+	community.rescheduleScriptBlock(s1, 1, RECORDTIME);
 	community.rescheduleScriptBlock(s2, RECORDTIME, RUNTIME);
 
 }
@@ -120,7 +126,7 @@ early() {
 //	MAPVAL_inds = p2.spatialMapValue("mapvals", location);
 //	RHO_inds = 1 / (K * (MAPVAL_inds + rain_factor)) * (FECUN/4 - ADULTMORTALITY/2) / (1 - (1-ADULTMORTALITY)/2) / (1/2 + FECUN/4);	
 	
-	juveniles.fitnessScaling = 0.95/(1 + RHO_inds * competition); // Density-independent mortality is set to 0.05 in the paper.
+	juveniles.fitnessScaling = (1 - JUVMORTALITY)/(1 + RHO_inds * competition); // Density-independent mortality is set to 0.05 in the paper.
 	adults = p1.subsetIndividuals(minAge = MATURATIONTIME + 1);
 	adults.color = '#0000FF';
 	adults.fitnessScaling = 1 - ADULTMORTALITY;
@@ -155,7 +161,7 @@ late() {
 		}
 		csvfile = paste(lines);
 		csvfile = "population, x, y\n" + csvfile;
-		csvfilename = OUTPATH + "coordinates_tick_" + community.tick + param_str + ".csv";
+		csvfilename = PARAMS.getValue("OUTPATH") + "coordinates_tick_" + community.tick + ".csv";
 		if (!writeFile(csvfilename, csvfile))
 			stop("Error writing csv file.");
 	}
@@ -164,7 +170,7 @@ late() {
 
 s1 late(){
 	if (community.tick == RECORDTIME){
-		log_file_title = OUTPATH + "sim_log" + param_str + ".txt";
+		log_file_title = PARAMS.getValue("OUTPATH") + "sim_log" + param_str + ".txt";
 		log = community.createLogFile(log_file_title, logInterval = 1);
 		log.addCycle();
 		log.addCustomColumn('adult population size', 'size(p1.subsetIndividuals(minAge = MATURATIONTIME+1));');
@@ -178,3 +184,33 @@ s2 late(){
 
 }
 
+function (void)setupParams(object<Dictionary>$ defaults)
+{
+	if (!exists("PARAMFILE")) defineConstant("PARAMFILE", "./params.json");
+	if (!exists("OUTDIR")) defineConstant("OUTDIR", ".");
+	defaults.addKeysAndValuesFrom(Dictionary("PARAMFILE", PARAMFILE, "OUTDIR", OUTDIR));
+	
+	if (fileExists(PARAMFILE)){
+		local_defaults = Dictionary(readFile(PARAMFILE), sep="\n");
+		defaults.addKeysAndValuesFrom(local_defaults);
+		defaults.setValue("read_from_paramfile", PARAMFILE);
+	}
+	
+	defaults.setValue("OUTBASE", OUTDIR + "/out_" +	defaults.getValue("seed"));
+	defaults.setValue("OUTPATH", defaults.getValue("OUTBASE"));
+	
+	for (k in defaults.allKeys) {
+		if (!exists(k)) {
+			defineConstant(k, defaults.getValue(k));
+		}
+		else {
+			defaults.setValue(k, executeLambda(paste(c(k, ";"), sep='')));
+		}
+	}
+	
+	// print out default values
+	catn("===========================");
+	catn("Model constants: " + defaults.serialize());
+	catn("===========================");
+
+}
