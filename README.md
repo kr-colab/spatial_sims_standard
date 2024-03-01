@@ -49,7 +49,7 @@ Then we define a dictionary called `defaults` storing default values of various 
         );
 ```
 
-We use a user-defined function, `setupParams` to set up parameter values based on `default` and a JSON file (`param.json`). The `setupParams` is defined at the end of `minimal.slim` from line 94. `PARAMFILE` overwrites any parameter values in `default`. 
+We use a user-defined function, `setupParams` to set up parameter values based on `default` and a JSON file (`PARAMFILE`). The `setupParams` is defined at the end of `minimal.slim` from line 94.  Parameter values in `PARAMFILE` the values in `default`: for instance, if `SD` is defined in the JSON at `PARAMFILE`, then changing `SD` in this script will not change the simulation; on the other hand, if `K` is not defined in `PARAMFILE` then it defaults to the value here (which is 5). 
 
 Next, we set up some constants that depend on the externally defined parameters. For instance, we use constant fecundity model in this example where the average fecundity is expected to be equal to 1 / lifetime once the age-distribution equilibrates. So we the constant `FECUN` depends on the externally defined `LIFETIME`. In addition, we use Beverton-Holt model to control local density, which uses a constant `RHO` that is set up so that the expected density is equal to carrying capacity `K`. 
 
