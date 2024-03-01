@@ -20,7 +20,7 @@ You need SLiM 4.1 to run `.slim` scripts from this repository. Download the late
 Some examples include extra analysis steps outside SLiM for the output files or input maps. 
 
 ## Initialize
-In `initialize() {...}`, we first declare that the models is non Wright-Fisher and is in two dimension (can be switched to one or three dimension depending on the model).
+In `initialize() {...}`, we first declare that the model is non-Wright-Fisher and is in two dimensions.
 ```
 	initializeSLiMModelType("nonWF");
 	initializeSLiMOptions(dimensionality="xy");
