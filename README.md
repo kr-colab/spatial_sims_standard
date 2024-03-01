@@ -7,11 +7,11 @@ List of subdirectories:
 - maps
 - adult movement
 - mate choice
-- selection
-- pikas (case study on pikas on a mountain with temperature rising)
-- toads (case study on Austrailian cane toads' range expansion)
-- mosquito (case study on mosquito population on a river map)
-- monarchs (case study on monarch butterflies with migration and resource nodes)
+- `selection/`
+- `pikas/` (case study: pikas on a mountain with temperature rising)
+- `toads/` (case study: Austrailian cane toads' range expansion)
+- `mosquito/` (case study: mosquitos with a larval stage that lives only in rivers and seasonal fluctuations)
+- `monarchs/` (case study: monarch butterflies whose populations are regulated by a discrete set of host plants, that feeds caterpillars)
 
 The scripts in each folder closely follow the format of `minimal.slim` but will have some elements that a more realistic simulation requires.
 
