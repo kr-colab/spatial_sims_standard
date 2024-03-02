@@ -124,24 +124,22 @@ early() {
 	adults.color = '#0000FF';
 }
 
-s1 late(){
-	lines = NULL;
+s1 late() {
+	lines = "population, x, y";
 	for (ind in p1.subsetIndividuals(minAge = MATURATIONTIME + 1))
 	{
 		pos = ind.spatialPosition;
-		coordline = paste0("1, ", pos[0], ", ", pos[1], "\n");
+		coordline = paste0("1, ", pos[0], ", ", pos[1]);
 		lines = c(lines, coordline);
 	}
 	for (ind in p1.subsetIndividuals(maxAge = MATURATIONTIME))
 	{
 		pos = ind.spatialPosition;
-		coordline = paste0("2, ", pos[0], ", ", pos[1], "\n");
+		coordline = paste0("2, ", pos[0], ", ", pos[1]);
 		lines = c(lines, coordline);
 	}
-	csvfile = paste(lines);
-	csvfile = "population, x, y\n" + csvfile;
 	csvfilename = OUTPATH + "_coordinates_tick_" + community.tick + ".csv";
-	if (!writeFile(csvfilename, csvfile))
+	if (!writeFile(csvfilename, lines))
 		stop("Error writing csv file.");
 }
 
