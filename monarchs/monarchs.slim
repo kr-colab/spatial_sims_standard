@@ -1,0 +1,252 @@
+// Author: Samuel Champer
+
+species all initialize() {
+    // Default parameters; can be overwritten by params.json.
+    defaults = Dictionary(
+        // General params:
+        "seed", getSeed(),
+        "RUN_LENGTH", 520,
+        "SIM_HEIGHT", 50.0,  // The migration route consists of an additional 10x this height.
+        "SIM_WIDTH", 50.0,
+        "PARAMFILE", exists("PARAMFILE") ? PARAMFILE else "./params.json",
+        // Monarch params:
+        "BUTTERFLY_MILKWEED_DISTANCE", 2.0,
+        "CATERPILLAR_MILKWEED_DISTANCE", 0.05,
+        "NUM_EGGS", 25,
+        "WEEKLY_FLAT_MORTALITY", 0.02,
+        "AGE_DEPENDENT_MORTALITY", c(0.0, 0.0, 0.0, 0.0, 0.0, 0.05, 0.15, 0.25, 0.45, 0.65, 0.85, 1.0),
+        "DISPERSAL_SIGMA", 2.0,
+        // Milkweed params:
+        "MILKWEED_PATCHES", 20,
+        "MILKWEED_PER_PATCH", 80,
+        "MILKWEED_PATCH_DISTRIBUTION_SIGMA", 0.5,
+        "CATERPILLARS_FED_PER_MILKWEED", 2
+    );
+    setupParams(defaults);
+    setSeed(seed);
+
+    initializeSLiMModelType("nonWF");
+
+    // Caterpillar foraging interaction.
+    initializeInteractionType(1, "xy", reciprocal=T, maxDistance=CATERPILLAR_MILKWEED_DISTANCE);
+
+    // Reproduction part 1
+    initializeInteractionType(2, "xy", reciprocal=T, maxDistance=BUTTERFLY_MILKWEED_DISTANCE);
+    i2.setConstraints("exerter", sex="M");  // Interaction by which milkweed indexes nearby males.
+    // Reproduction part 2
+    initializeInteractionType(3, "xy", reciprocal=T, maxDistance=BUTTERFLY_MILKWEED_DISTANCE);
+    i3.setConstraints("receiver", sex="F");  // Interaction by which females find milkweed.
+}
+
+function (void)setupParams(object<Dictionary>$ defaults) {
+    if (!exists("PARAMFILE")) defineConstant("PARAMFILE", "./params.json");
+    if (!exists("OUTDIR")) defineConstant("OUTDIR", ".");
+    defaults.addKeysAndValuesFrom(Dictionary("PARAMFILE", PARAMFILE, "OUTDIR", OUTDIR));
+
+    if (fileExists(PARAMFILE)) {
+        local_defaults = Dictionary(readFile(PARAMFILE), sep="\n");
+        defaults.addKeysAndValuesFrom(local_defaults);
+        defaults.setValue("read_from_paramfile", PARAMFILE);
+    }
+
+    defaults.setValue("OUTBASE", OUTDIR + "/out_" + defaults.getValue("seed"));
+    defaults.setValue("OUTPATH", defaults.getValue("OUTBASE") + ".trees");
+
+    for (k in defaults.allKeys) {
+        if (!exists(k)) {
+            defineConstant(k, defaults.getValue(k));
+        }
+        else {
+            defaults.setValue(k, executeLambda(paste(c(k, ";"), sep='')));
+        }
+    }
+    // print out default values
+    catn("===========================");
+    catn("Model constants: " + defaults.serialize());
+    catn("===========================");
+}
+
+species milkweed_plant initialize() {
+    initializeSpecies(avatar="V", color="cornflowerblue");
+    initializeSLiMOptions(dimensionality="xy");
+}
+
+species monarch initialize() {
+    initializeSpecies(avatar="O", color="red");
+    initializeSLiMOptions(dimensionality="xy");
+    initializeSex("A");
+}
+
+species monarch reproduction (NULL, "F") {
+    // Females and males can reproduce if they are both within range of the same milkweed.
+    for (milkweed in p1.individuals) {
+        nearby_males = i2.nearestInteractingNeighbors(milkweed, p4.individualCount, p4);
+        milkweed.setValue("nearby_males", nearby_males.index);
+    }
+    females = p4.subsetIndividuals(sex="F");
+    eggs_laid = rpois(females.size(), NUM_EGGS);
+    non_zero = (eggs_laid != 0);
+    females = females[non_zero];
+    eggs_laid = eggs_laid[non_zero];
+    for (idx in seqAlong(females)) {
+        mother = females[idx];
+        // Females not near any milkweed cannot reproduce.
+        nearest_milkweeds = i3.nearestInteractingNeighbors(mother, p1.individualCount, p1);
+        if (!size(nearest_milkweeds))
+            next;
+        nearby_males = c(nearest_milkweeds.getValue("nearby_males"));
+        // Females with no available mates cannot reproduce.
+        if (size(nearby_males) == 0)
+            next;
+        // Sample a mate and generate offspring.
+        mate = p4.individuals[sample(nearby_males, 1)];
+        // The tag property will be used to prevent this female from laying more than ten eggs at a given milkweed.
+        nearest_milkweeds.tag = 0;
+        for (i in seqLen(eggs_laid[idx])) {
+            milkweed_for_this_egg = sample(nearest_milkweeds, 1);
+            offspring = p2.addCrossed(mother, mate);
+            offspring.setSpatialPosition(milkweed_for_this_egg.spatialPosition);
+            offspring.tagF = 0.0;
+            // Prevent this female from laying more than 10 eggs per milkweed in range.
+            milkweed_for_this_egg.tag = milkweed_for_this_egg.tag + 1;
+            if (milkweed_for_this_egg.tag == 10) {
+                nearest_milkweeds = nearest_milkweeds[nearest_milkweeds.tag < 10];
+                if (!size(nearest_milkweeds))
+                    break;
+            }
+        }
+    }
+    self.active = 0;
+}
+
+function (object) addMilkweed(void) {
+    /*
+        Set up the milkweed positions.
+        Patches will be distributed according to a uniform random distribution,
+        while milkweed within a patch will be distributed according to a normal distribution.
+    */
+    centroids_x = runif(MILKWEED_PATCHES, 0, SIM_WIDTH);
+    centroids_y = runif(MILKWEED_PATCHES, SIM_HEIGHT * 10, SIM_HEIGHT * 11);
+    xs = c();
+    ys = c();
+    for (i in seqLen(MILKWEED_PATCHES)) {
+        new_xs = pmax(0.0, pmin(SIM_WIDTH, rnorm(MILKWEED_PER_PATCH, centroids_x[i], MILKWEED_PATCH_DISTRIBUTION_SIGMA)));
+        new_ys = pmax(SIM_HEIGHT * 10, pmin(SIM_HEIGHT * 11, rnorm(MILKWEED_PER_PATCH, centroids_y[i], MILKWEED_PATCH_DISTRIBUTION_SIGMA)));
+        xs = c(xs, new_xs);
+        ys = c(ys, new_ys);
+    }
+    return Dictionary("xs", xs, "ys", ys);
+}
+
+ticks all 1 first() {
+    community.rescheduleScriptBlock(s1, ticks=RUN_LENGTH);
+    milkweedData = addMilkweed();
+    // Add the milkweed population.
+    milkweed_plant.addSubpop("p1", size(milkweedData.getValue("xs")));
+    p1.setSpatialBounds(c(0, SIM_HEIGHT * 10, SIM_WIDTH, SIM_HEIGHT * 11));
+    p1.individuals.x = milkweedData.getValue("xs");
+    p1.individuals.y = milkweedData.getValue("ys");
+
+    // Initialize the monarchs.
+    // The monarchs don't have a definied capacity in this model.
+    // The simulation will just start with enough caterpillars to eat the milkweed.
+    monarch.addSubpop("p2", size(milkweedData.getValue("xs")) * CATERPILLARS_FED_PER_MILKWEED * 2);
+    p2.setSpatialBounds(c(0, SIM_HEIGHT * 10, SIM_WIDTH, SIM_HEIGHT * 11));
+    p2.individuals.x = rep(milkweedData.getValue("xs"), CATERPILLARS_FED_PER_MILKWEED * 2);
+    p2.individuals.y = rep(milkweedData.getValue("ys"), CATERPILLARS_FED_PER_MILKWEED * 2);
+    p2.individuals.tagF = 0.0;
+
+    // No pupae or adult butterflies at start.
+    monarch.addSubpop("p3", 0);  // Pupae.
+    p3.setSpatialBounds(c(0, SIM_HEIGHT * 10, SIM_WIDTH, SIM_HEIGHT * 11));
+    monarch.addSubpop("p4", 0);  // Adult butterflies.
+    p4.setSpatialBounds(c(0, SIM_HEIGHT * 10, SIM_WIDTH, SIM_HEIGHT * 11));
+    monarch.addSubpop("p5", 0);  // Migratory butterflies.
+    p5.setSpatialBounds(c(0, 0, SIM_WIDTH, SIM_HEIGHT * 11));
+}
+
+ticks all first() {
+    // Evaluate the two part spatial interaction for reproduction.
+    i2.evaluate(c(p1, p4));
+    i3.evaluate(c(p1, p4));
+}
+
+ticks all early() {
+    // After two weeks, caterpillars become pupae.
+    // Pupae survival is based on food collected as a caterpillar.
+    // Pupae mortality is only applied a single time.
+    new_pupae = p2.individuals[p2.individuals.age == 2];
+    p3.takeMigrants(new_pupae);
+    mortality_indices = runif(size(new_pupae)) > new_pupae.tagF;
+    dead = new_pupae[mortality_indices];
+    monarch.killIndividuals(dead);
+
+    // After two weeks as a pupa, survivors become butterflies.
+    new_butterflies = p3.individuals[p3.individuals.age == 4];
+
+    if (community.tick % 52 < 24)
+        p4.takeMigrants(new_butterflies);
+    else {
+        p5.takeMigrants(new_butterflies);
+        p5.takeMigrants(p4.individuals);
+    }
+
+    // Non-migratory butterfly dispersal and mortality.
+    new_positions = p4.pointDeviated(p4.individualCount, p4.individuals.spatialPosition, "reprising", INF, "n", DISPERSAL_SIGMA);
+    p4.individuals.setSpatialPosition(new_positions);
+    age_mortality = AGE_DEPENDENT_MORTALITY[p4.individuals.age];
+    p4.individuals.fitnessScaling = pmax(0.0, 1.0 - age_mortality - WEEKLY_FLAT_MORTALITY);
+
+    // Caterpillar foraging.
+    // Each milkweed evenly provides resources to all caterpillars within range.
+    inds_fed_per_milkweed = CATERPILLARS_FED_PER_MILKWEED;
+    if (community.tick % 52 > 24)
+        inds_fed_per_milkweed = 0;
+    i1.evaluate(c(p2, p1));
+    for (milkweed in p1.individuals) {
+        customers = i1.nearestNeighbors(milkweed, p2.individualCount, p2);
+        customers.tagF = customers.tagF + inds_fed_per_milkweed / size(customers);
+    }
+
+    // Migratory butterflies.
+    p5.individuals.fitnessScaling = 1.0 - WEEKLY_FLAT_MORTALITY;
+    // Migrate south.
+    if (community.tick % 52 < 40 & community.tick % 52 > 24) {
+        migrators = p5.individuals[p5.individuals.y > SIM_HEIGHT];
+        migrators.x = runif(size(migrators), 0.0, SIM_WIDTH);
+        migrators.y = pmax(0.0, migrators.y - rnorm(size(migrators), SIM_HEIGHT, DISPERSAL_SIGMA * 5));
+    }
+    // Migrate back north. When individuals make it back North,
+    // their ages will be set to a lower value and they will start
+    // experiencing age dependent morality and start reproducing.
+    if (community.tick % 52 > 42 | community.tick % 52 < 24) {
+        p5.individuals.x = runif(p5.individualCount, 0.0, SIM_WIDTH);
+        p5.individuals.y = pmin(SIM_HEIGHT * 11, p5.individuals.y + rnorm(p5.individualCount, SIM_HEIGHT, DISPERSAL_SIGMA * 5));
+        returned_north = p5.individuals[p5.individuals.y > SIM_HEIGHT * 10];
+        returned_north.age = 7;
+        p4.takeMigrants(returned_north);
+    }
+
+    // Every year, the position of the milkweed is re-randomized.
+    // Assuming the simulation starts in summer, this will occur around spring.
+    if (community.tick % 52 == 32) {
+        milkweedData = addMilkweed();
+        p1.individuals.x = milkweedData.getValue("xs");
+        p1.individuals.y = milkweedData.getValue("ys");
+    }
+}
+
+ticks all late () {
+    // Output.
+    catn("Time: " + community.tick);
+    catn("    Caterpillars: " + p2.individualCount);
+    catn("    Pupae:        " + p3.individualCount);
+    catn("    Butterflies:  " + p4.individualCount);
+    catn("    Migrators:    " + p5.individualCount);
+}
+
+ticks all s1 late() {
+    // End of simulation.
+    catn("End of simulation.");
+    community.simulationFinished();
+}
