@@ -23,11 +23,10 @@ initialize() {
 		"L", 1e8, // genome length
 		"R", 1e-8, // recombination rate
 		"MU", 0, // mutation rate
-		"IMAGE_PATH", "./river.png"
+		"IMAGE_PATH", "./river_greyscale.png"
 		);
 	// Set up parameters with a user-defined function
 	setupParams(defaults);
-	
 	
 	defineConstant("WIDTH", XMAX - XMIN);
 	defineConstant("HEIGHT", YMAX - YMIN);
@@ -47,11 +46,11 @@ initialize() {
 	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=SX*3);
 	i1.setInteractionFunction("n", 1, SX);
 	i1.setConstraints("both", maxAge=MATURATIONTIME);
+	// dioecious mating
 	initializeInteractionType(2, "xy", reciprocal=T, maxDistance=SM*3);
 	i2.setInteractionFunction("n", 1, SM);
 	i2.setConstraints("receiver", sex="F", minAge=MATURATIONTIME+1);
 	i2.setConstraints("exerter", sex="M", minAge=MATURATIONTIME+1);
-
 }
 
 
@@ -61,15 +60,13 @@ initialize() {
 	p1.individuals.setSpatialPosition(p1.pointUniform(p1.individualCount));
 	
 	mapImage = Image(IMAGE_PATH);
-	map_vals = p1.defineSpatialMap("mapvals", "xy",
-		(K - K * (mapImage.floatG - min(mapImage.floatG))/(max(mapImage.floatG)-min(mapImage.floatG))),
+	map = p1.defineSpatialMap("mapvals", "xy",
+		(K - K * (mapImage.floatK - min(mapImage.floatK))/(max(mapImage.floatK)-min(mapImage.floatK))),
 		valueRange = c(0, K), colors = c("black", "white"));
-	defineConstant("RIVER", map_vals);
-	
+	defineConstant("RIVER", map);
 	
 	community.rescheduleScriptBlock(s1, ticks=seq(RECORDTIME, RUNTIME, RECORDINTERVAL));
 	community.rescheduleScriptBlock(s2, ticks=RUNTIME);
-
 }
 
 1 late(){
@@ -102,10 +99,11 @@ early() {
 	adults = p1.subsetIndividuals(minAge = MATURATIONTIME + 1);
 	pos = adults.spatialPosition;
 	pos = p1.pointDeviated(adults.size(), pos, "reprising", INF, "n", SV);
+	adults.setSpatialPosition(pos);
 	
 	// fitness depends on river map and river factor
 	// Rain factor increases carrying capacity everywhere by K at its peak	
-	rain_factor = K * (-cos(community.tick / 365 * 2 * 3.14) +cos((community.tick-1)/365 * 2 * 3.14)) * 0.5;
+	rain_factor = K * (-cos(community.tick / 365 * 2 * PI) +cos((community.tick-1)/365 * 2 * PI)) * 0.5;
 	RIVER.add(rain_factor);
 	
 	// density-dependent fitness scaling only applies to larvae
@@ -113,9 +111,9 @@ early() {
 	juveniles = p1.subsetIndividuals(maxAge = MATURATIONTIME);
 	competition = i1.localPopulationDensity(juveniles);
 	location = juveniles.spatialPosition;
-	K_inds = p1.spatialMapValue("mapvals", location);
+	K_inds = RIVER.mapValue(location);
 	RHO_inds = RHO * K / K_inds;
-	juveniles.fitnessScaling = (1 - JUVMORTALITY)/(1 + RHO_inds * competition);
+	juveniles.fitnessScaling = (1 - JUVMORTALITY) / (1 + RHO_inds * competition);
 	
 	// adults have fixed mortality independent of location
 	adults = p1.subsetIndividuals(minAge = MATURATIONTIME + 1);
@@ -127,24 +125,19 @@ early() {
 }
 
 s1 late(){
-	lines = NULL;
+	csvfilename = OUTPATH + "_coordinates_tick_" + community.tick + ".csv";
+	header = "population, x, y";
+	writeFile(csvfilename, header);
 	for (ind in p1.subsetIndividuals(minAge = MATURATIONTIME + 1))
 	{
 		pos = ind.spatialPosition;
-		coordline = paste0("1, ", pos[0], ", ", pos[1], "\n");
-		lines = c(lines, coordline);
+		writeFile(csvfilename, paste0("1, ", pos[0], ", ", pos[1]), append = T);
 	}
 	for (ind in p1.subsetIndividuals(maxAge = MATURATIONTIME))
 	{
 		pos = ind.spatialPosition;
-		coordline = paste0("2, ", pos[0], ", ", pos[1], "\n");
-		lines = c(lines, coordline);
+		writeFile(csvfilename, paste0("2, ", pos[0], ", ", pos[1]), append = T);
 	}
-	csvfile = paste(lines);
-	csvfile = "population, x, y\n" + csvfile;
-	csvfilename = OUTPATH + "_coordinates_tick_" + community.tick + ".csv";
-	if (!writeFile(csvfilename, csvfile))
-		stop("Error writing csv file.");
 }
 
 s2 late(){
