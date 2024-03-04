@@ -1,19 +1,21 @@
 # Standardizing spatial simulations on SLiM
+TODO : INTRODUCTION
+
 We demonstrate several spatial simulation scripts that can (hopefully) be modified easily by users for their ecological scenarios in mind.
 
 In the main directory, we have a minimal example of hermaphrodites without age-structure, adult movements, or a map.
+The scripts in each folder closely follow the format of `minimal.slim` but will have some elements that a more realistic simulation requires.
 
 List of subdirectories:
-- maps
-- adult movement
-- mate choice
-- `selection/`
-- `pikas/` (case study: pikas on a mountain with temperature rising)
-- `toads/` (case study: Austrailian cane toads' range expansion)
-- `mosquito/` (case study: mosquitos with a larval stage that lives only in rivers and seasonal fluctuations)
-- `monarchs/` (case study: monarch butterflies whose populations are regulated by a discrete set of host plants, that feeds caterpillars)
-
-The scripts in each folder closely follow the format of `minimal.slim` but will have some elements that a more realistic simulation requires.
+- `maps/` (Use a simple map of a mountain to model heterogenous carrying capacity distribution in space) 
+- `adult_movement/` (Individuals continue to move around throughout its lifetime. Appropriate for animals, rather than plants)
+- `mate_choice/` (Dioecious population, offspring dispersed from female parents)
+- `selection/` (Selective sweep in space)
+- `case_studies/`
+	- `pikas/` (pikas on a mountain with temperature rising)
+	- `toads/` (Austrailian cane toads' range expansion)
+	- `mosquito/` (mosquitos with a larval stage that lives only in rivers and seasonal fluctuations)
+	- `monarchs/` (monarch butterflies whose populations are regulated by a discrete set of host plants, that feeds caterpillars)
 
 ## Setup - install SLiM
 You need SLiM 4.1 to run `.slim` scripts from this repository. Download the latest SLiM and follow the installation instructions for your system (https://messerlab.org/slim/)
