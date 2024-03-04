@@ -16,7 +16,7 @@ initialize() {
 		"L", 2e9, // genome length
 		"R", 1e-8, // recombination rate
 		"MU", 0, // mutation rate
-		"DISPERSAL_MAP_FILE", "./e_mat.png",
+		"MAP_FILE", "./e_mat.png",
 		"ELEVATION_RANGE", c(7539, 13507) * 3.048e-4 // elevation range in ft from map legend -> converting to km
 		);
 	
@@ -36,8 +36,8 @@ initialize() {
 	initializeRecombinationRate(R);
 	
 	// elevation params
-	defineConstant("dispersal_map", Image(DISPERSAL_MAP_FILE));
-	defineGlobal("Elevation", dispersal_map.floatK * (ELEVATION_RANGE[1]-ELEVATION_RANGE[0]) + ELEVATION_RANGE[0]);
+	defineConstant("elevation_map", Image(MAP_FILE));
+	defineGlobal("Elevation", elevation_map.floatK * (ELEVATION_RANGE[1]-ELEVATION_RANGE[0]) + ELEVATION_RANGE[0]);
 	defineGlobal("Temperature", -10 * Elevation + 37); // estimate temperature from elevation (Collados-Lara AJ et al., 2020)
 	
 	// spatial competition
@@ -52,11 +52,8 @@ initialize() {
 1 first() {
 	sim.addSubpop("p1", asInteger(K * WIDTH * HEIGHT));
 	p1.setSpatialBounds(c(0, 0, WIDTH, HEIGHT));
-	p1.defineSpatialMap("elevation", "xy", dispersal_map.floatK, interpolate=T, valueRange=c(0,1), colors=c("#0000FF", "#FFFFFF")); // this map is (only) for visualizing elevation in the GUI
-	// random initial positions
-	for (ind in p1.individuals) {
-		ind.setSpatialPosition(p1.pointUniform());
-	}
+	p1.defineSpatialMap("elevation", "xy", elevation_map.floatK, interpolate=T, valueRange=c(0,1), colors=c("#0000FF", "#FFFFFF")); // this map is (only) for visualizing elevation in the GUI
+	p1.individuals.setSpatialPosition(p1.pointUniform(p1.individualCount));
 	i1.evaluate(sim.subpopulations);
 	
 	community.rescheduleScriptBlock(s1, ticks=BURNIN + RUNTIME);
