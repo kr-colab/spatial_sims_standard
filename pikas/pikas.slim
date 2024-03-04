@@ -57,11 +57,6 @@ initialize() {
 	i1.evaluate(sim.subpopulations);
 	
 	community.rescheduleScriptBlock(s1, ticks=BURNIN + RUNTIME);
-	
-	// header info
-	catn("gen" + " " + "stage" + " " + "pop_size" + " " 
-	    + "births" + " " + "age" + " " + "density" + " " + "neighbor" 
-	    + " " + "harm_neigh" + " " + "num_off" + " " + "time");
 }
 
 first() {
