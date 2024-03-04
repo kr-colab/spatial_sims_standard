@@ -3,8 +3,7 @@ initialize() {
 	initializeSLiMOptions(dimensionality="xy");
 	// This model uses tree-sequence recording, but it is optional
 	initializeTreeSeq();
-	
-	
+
 	defaults = Dictionary(
 		"seed", getSeed(),
 		"SD", 0.3, // sigma_D, dispersal distance
@@ -60,7 +59,7 @@ first() {
 reproduction(){
 	mate = i2.drawByStrength(individual, 1);
 	if (mate.size())
-		offsprings = subpop.addCrossed(individual, mate, count=rpois(1, FECUN));
+		offspring = subpop.addCrossed(individual, mate, count=rpois(1, FECUN));
 }
 
 early() {
@@ -90,7 +89,6 @@ s1 late() {
 	sim.simulationFinished();
 }
 
-
 function (void)setupParams(object<Dictionary>$ defaults)
 {
 	if (!exists("PARAMFILE")) defineConstant("PARAMFILE", "./params.json");
@@ -119,5 +117,4 @@ function (void)setupParams(object<Dictionary>$ defaults)
 	catn("===========================");
 	catn("Model constants: " + defaults.serialize());
 	catn("===========================");
-
 }
