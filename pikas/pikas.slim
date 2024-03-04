@@ -56,7 +56,6 @@ initialize() {
 	// random initial positions
 	for (ind in p1.individuals) {
 		ind.setSpatialPosition(p1.pointUniform());
-		ind.tag = 0;
 	}
 	i1.evaluate(sim.subpopulations);
 	
@@ -79,9 +78,6 @@ reproduction() {
 	if (mate.size()) {
 		nOff = rpois(1, FECUN);
 		offspring = subpop.addCrossed(individual, mate, count=nOff);
-		// record number of offspring in the tag
-		individual.tag = individual.tag + nOff;
-		offspring.tag = 0;
 	}
 	return;
 }
@@ -96,7 +92,7 @@ early() {
 	defineGlobal("Temperature", Temperature + 0.016); // increase global temperature
 	
 	// random noise: each year can be a 'hot' or 'cold' year 
-	s = 2; // between-year std dev   *** NEED REFERENCE ***
+	s = 2; // between-year std dev
 	annual_stddev = rnorm(1,0,s);
 	p1.defineSpatialMap("Temperature", "xy", Temperature+annual_stddev, interpolate=T, valueRange=c(0,1), colors=c("#FFFFFF", "#0000FF"));
 	
@@ -138,11 +134,11 @@ early() {
 	//  green = many neighbors, few offspring so far
 	//  red = many offspring so far, few neighbors
 	//  yellow = many offspring so far, many neighbors
-	max_n = max(1, max(p1.individuals.tag));
+	max_n = max(1, max(p1.lifetimeReproductiveOutput));
 	max_f = max(0.01, max(p1.individuals.tagF));
 	max_a = max(p1.individuals.age);
 	for (ind in p1.individuals) {
-		ind.color = rgb2color(c(ind.tag/max_n, ind.tagF/max_f, ind.age/max_a));
+		ind.color = rgb2color(c(ind.reproductiveOutput/max_n, ind.tagF/max_f, ind.age/max_a));
 	}
 }
 
