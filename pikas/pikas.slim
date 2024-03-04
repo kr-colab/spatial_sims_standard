@@ -106,16 +106,15 @@ early() {
 	
 	// record strength of competition in the tagF
 	inds.tagF = competition;
-	inds.fitnessScaling = 1/(1 + RHO * competition);
+	fitness = 1/(1 + RHO * competition);
 	
 	// kill indivs. outside optimal temperature range
 	locations = inds.spatialPosition;      
 	individual_temperatures = p1.spatialMapValue("Temperature", locations);
-	// range from Beever et al, 2010; includes adjustment for winter cold
-	// fitness = 0 if temperature is too low
-	inds.fitnessScaling = inds.fitnessScaling * asFloat(individual_temperatures >= (-5.0 + 6.830664));
-	// adjustment for summer heat; fitness = 0 if temperature too high
-	inds.fitnessScaling = inds.fitnessScaling * asFloat(individual_temperatures <= (28 - 4.97887));
+	fitness[individual_temperatures < (-5.0 + 6.830664)
+	                | individual_temperatures > (28 - 4.97887)] = 0.0;	                
+	inds.fitnessScaling = fitness;
+
 }
 
 
