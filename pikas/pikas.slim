@@ -59,10 +59,9 @@ initialize() {
 	community.rescheduleScriptBlock(s1, ticks=BURNIN + RUNTIME);
 	
 	// header info
-	cat("gen" + " " + "stage" + " ");
-	cat("pop_size" + " " + "births" + " ");
-	cat("age" + " " + "density" + " ");
-	catn("neighbor" + " " + "harm_neigh" + " " + "num_off" + " " + "time");
+	catn("gen" + " " + "stage" + " " + "pop_size" + " " 
+	    + "births" + " " + "age" + " " + "density" + " " + "neighbor" 
+	    + " " + "harm_neigh" + " " + "num_off" + " " + "time");
 }
 
 first() {
