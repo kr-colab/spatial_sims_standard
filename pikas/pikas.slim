@@ -53,9 +53,10 @@ initialize() {
 	sim.addSubpop("p1", asInteger(K * WIDTH * HEIGHT));
 	p1.setSpatialBounds(c(0, 0, WIDTH, HEIGHT));
 	p1.defineSpatialMap("elevation", "xy", elevation_map.floatK, interpolate=T, valueRange=c(0,1), colors=c("#0000FF", "#FFFFFF")); // this map is (only) for visualizing elevation in the GUI
+	temperature_spatmap = p1.defineSpatialMap("Temperature", "xy", Temperature, interpolate=T, valueRange=c(0,1), colors=c("#FFFFFF", "#0000FF"));
+	defineGlobal("TEMPERATURE_SPATMAP", temperature_spatmap);	
 	p1.individuals.setSpatialPosition(p1.pointUniform(p1.individualCount));
-	i1.evaluate(sim.subpopulations);
-	
+	i1.evaluate(sim.subpopulations);	
 	community.rescheduleScriptBlock(s1, ticks=BURNIN + RUNTIME);
 }
 
@@ -79,22 +80,24 @@ early() {
 	pos = offspring.spatialPosition;
 	pos = p1.pointDeviated(offspring.size(), pos, "reprising", INF, "n", SD);
 	offspring.setSpatialPosition(pos);
+	
 	// update temperature (0.016 / year; and assuming ticks are years, here)
-	defineGlobal("Temperature", Temperature + 0.016); // increase global temperature
+	TEMPERATURE_SPATMAP.add(0.016); // increase global temperature
 	
 	// random noise: each year can be a 'hot' or 'cold' year 
 	s = 2; // between-year std dev
 	annual_stddev = rnorm(1,0,s);
-	p1.defineSpatialMap("Temperature", "xy", Temperature+annual_stddev, interpolate=T, valueRange=c(0,1), colors=c("#FFFFFF", "#0000FF"));
-	
+	TEMPERATURE_SPATMAP.add(annual_stddev);
+
 	print("");
-	print(c("sim cycle:", sim.cycle, "Temperature:", range(Temperature)));
+	print(c("sim cycle:", sim.cycle, "Temperature:", range(TEMPERATURE_SPATMAP.gridValues())));
 	
 	// calculate % habitable space
+	temps =	TEMPERATURE_SPATMAP.gridValues()
 	// without stochasticity
-	mydata = c(p1.individualCount, sum((Temperature)>(-5.0 + 6.830664) & (Temperature)<(28 - 4.97887)) / length(Temperature));
-	// with stochasticity
-	//mydata = c(p1.individualCount, sum((Temperature+annual_stddev)>(-5.0 + 6.830664) & (Temperature+annual_stddev)<(28 - 4.97887)) / length(Temperature));
+	mydata = c(p1.individualCount, sum((temps)>(-5.0 + 6.830664) & (temps)<(28 - 4.97887)) / length(temps));
+	// // with stochasticity
+	// mydata = c(p1.individualCount, sum((temps+annual_stddev)>(-5.0 + 6.830664) & (temps+annual_stddev)<(28 - 4.97887)) / length(temps));
 	writeFile(OUTDIR + "/pika_simdata.txt", paste(mydata, sep='\t'), append=T);
 
 }
@@ -109,9 +112,9 @@ early() {
 	fitness = 1/(1 + RHO * competition);
 	
 	// kill indivs. outside optimal temperature range
-	locations = inds.spatialPosition;      
-	individual_temperatures = p1.spatialMapValue("Temperature", locations);
-	fitness[individual_temperatures < (-5.0 + 6.830664)
+	locations = inds.spatialPosition;
+	temps = p1.spatialMapValue(TEMPERATURE_SPATMAP, locations);
+	fitness[temps < (-5.0 + 6.830664)
 	                | individual_temperatures > (28 - 4.97887)] = 0.0;	                
 	inds.fitnessScaling = fitness;
 
