@@ -1,0 +1,169 @@
+initialize() {
+	initializeSLiMModelType("nonWF");
+	initializeSLiMOptions(keepPedigrees=T);
+	// This model uses tree-sequence recording, but it is optional
+	initializeTreeSeq();
+	
+	
+	defaults = Dictionary(
+		"seed", getSeed(),
+		"K", 5, // carrying capacity per unit area
+		"LIFETIME", 4, // average life span
+		"HEIGHT", 25, 		// height of simulation map
+		"WIDTH", 25, 		// width of simulation map
+		"RUNTIME", 2000, // total number of ticks to run the simulation for
+		"L", 1e8, // genome length
+		"R", 1e-8, // recombination rate
+		"MU", 0, // mutation rate
+		"S_FEC", 0., // selection coefficient for fecundity-based selection
+		"S_MOR", 0.1, // selection coefficient for mortality-based selection
+		"H_FEC", 0.5, // dominance coefficient for fecundity-based selection
+		"H_MOR", 0.5, // dominance coefficient for mortality-based selection
+		"BURNIN", 10, // how many ticks to run the simulation for before adding focal mutation
+		"FIXSTOP", T, // whether to stop the simulation once the mutation is fixed
+		"RESTART", T // whether to restart the simulation if the mutation is lost
+		);
+	
+	// Set up parameters with a user-defined function
+	setupParams(defaults);
+	
+	// Set up constants that depend on externally defined parameters
+	
+	defineConstant("FECUN", 1 / LIFETIME);
+	defineConstant("RHO", FECUN / ((1 + FECUN) * K));
+	defineGlobal("PARAMS", defaults);
+	
+	setSeed(seed);
+	
+	initializeMutationRate(MU);
+	initializeMutationType("m1", H_MOR, "f", S_MOR);
+	initializeGenomicElementType("g1", m1, 1.0);
+	initializeGenomicElement(g1, 0, L-1);
+	initializeRecombinationRate(R);
+	
+	// globals for mutation tracking
+	defineGlobal("mutationadded", F);
+	defineGlobal("mutationfixed", F);
+}
+
+1 first() {
+	// initialize population
+	sim.addSubpop("p1", asInteger(K * WIDTH * HEIGHT));
+	
+	// schedule sim finish
+	community.rescheduleScriptBlock(s1, ticks=BURNIN:RUNTIME);
+	community.rescheduleScriptBlock(s2, ticks=BURNIN+1:RUNTIME);
+	community.rescheduleScriptBlock(s3, ticks=RUNTIME);
+	
+	// save population state for restarting sim if mutation is lost
+	if (RESTART){ sim.treeSeqOutput(OUTBASE+'_initial_state.trees'); }
+	
+	// set up logging
+	log = community.createLogFile(OUTBASE+'.log', logInterval=1);
+	log.addTick();
+	log.addSubpopulationSize(p1);
+	log.addCustomColumn('allele_freq', 'if (sim.mutations.size()==0) {return NAN;} else{return p1.species.mutationFrequencies(NULL);};');
+	log.addCustomColumn('mean_offspring', 'mean(p1.lifetimeReproductiveOutput);');
+	log.addCustomColumn('mean_age', 'mean(p1.individuals.age);');
+}
+
+reproduction() {
+	mutcount = sum(individual.genomes.countOfMutationsOfType(m1));
+	indiv_s = S_FEC * (H_FEC * asFloat(mutcount==1) + asFloat(mutcount==2));
+	nOff = rpois(1, FECUN * (1 + indiv_s) + indiv_s);
+	// 1:0 is a c(1, 0), so without an if loop, two offsprings will be generated when nOff = 0.
+	if (nOff > 0){
+		for (i in 1:nOff)
+			subpop.addCrossed(individual, subpop.sampleIndividuals(1));
+	}
+}
+
+early() {
+	p1.fitnessScaling = 1 / (1 + RHO * p1.individualCount / (WIDTH * HEIGHT));
+}
+
+late() {
+	if (p1.individualCount == 0) {
+		catn("Population went extinct! Ending the simulation.");
+		sim.simulationFinished();
+	}
+}
+
+s1 late() {
+	// add beneficial mutation to individual
+	if (!mutationadded) {
+		newborns = p1.individuals[which(p1.individuals.age==0)];
+		target = sample(newborns.genomes, 1);
+		target.addNewDrawnMutation(m1, asInteger(L/2));
+		defineGlobal("mutationtick", community.tick);
+		defineGlobal("mutationadded", T);
+		catn("Beneficial mutation added at tick " + community.tick);
+	}
+}
+
+
+s2 early() {
+	// restart sim if mutation gets lost
+	if (RESTART & mutationadded & sim.countOfMutationsOfType(m1)==0) {
+		//if (sim.countOfMutationsOfType(m1)==0) {
+		deleteFile(OUTBASE+'.log');
+		cat(community.tick);
+		cat("LOST -- RESTARTING\n");
+		sim.readFromPopulationFile(OUTBASE+'_initial_state.trees');
+		setSeed(rdunif(1, 0, asInteger(2^62) - 1));
+		sim.recalculateFitness();
+		defineGlobal("mutationadded",F);
+	}
+	
+	else if (p1.species.mutationFrequencies(NULL) == 1.0) {
+		if (FIXSTOP) {
+			// end of simulation if fixed
+			catn("End of simulation (mutation fixed)");
+			sim.treeSeqOutput(OUTPATH, metadata=PARAMS);
+			sim.simulationFinished();
+		}
+		if (!mutationfixed){
+			community.rescheduleScriptBlock(s2, ticks=community.tick + 1);
+			defineGlobal("mutationfixed", T);
+		}
+	}
+}
+
+
+s3 late() {
+	catn("End of simulation (run time reached)");
+	sim.treeSeqOutput(OUTPATH, metadata=PARAMS);
+	sim.simulationFinished();
+}
+
+
+function (void)setupParams(object<Dictionary>$ defaults)
+{
+	if (!exists("PARAMFILE")) defineConstant("PARAMFILE", "./params.json");
+	if (!exists("OUTDIR")) defineConstant("OUTDIR", ".");
+	defaults.addKeysAndValuesFrom(Dictionary("PARAMFILE", PARAMFILE, "OUTDIR", OUTDIR));
+	
+	if (fileExists(PARAMFILE)){
+		local_defaults = Dictionary(readFile(PARAMFILE), sep="\n");
+		defaults.addKeysAndValuesFrom(local_defaults);
+		defaults.setValue("read_from_paramfile", PARAMFILE);
+	}
+	
+	defaults.setValue("OUTBASE", OUTDIR + "/out_" +	defaults.getValue("seed"));
+	defaults.setValue("OUTPATH", defaults.getValue("OUTBASE") + ".trees");
+	
+	for (k in defaults.allKeys) {
+		if (!exists(k)) {
+			defineConstant(k, defaults.getValue(k));
+		}
+		else {
+			defaults.setValue(k, executeLambda(paste(c(k, ";"), sep='')));
+		}
+	}
+	
+	// print out default values
+	catn("===========================");
+	catn("Model constants: " + defaults.serialize());
+	catn("===========================");
+
+}
