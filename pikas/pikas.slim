@@ -95,7 +95,7 @@ early() {
 	// calculate % habitable space
 	temps =	TEMPMAP.gridValues()
 	// without stochasticity
-	mydata = c(p1.individualCount, sum((temps)>(-5.0 + 6.830664) & (temps)<(28 - 4.97887)) / length(temps));
+	mydata = c(p1.individualCount, sum(temps > (-5.0 + 6.830664) & temps < (28 - 4.97887)) / length(temps));
 	// // with stochasticity
 	// mydata = c(p1.individualCount, sum((temps+annual_stddev)>(-5.0 + 6.830664) & (temps+annual_stddev)<(28 - 4.97887)) / length(temps));
 	writeFile(OUTDIR + "/pika_simdata.txt", paste(mydata, sep='\t'), append=T);
@@ -113,7 +113,7 @@ early() {
 	
 	// kill indivs. outside optimal temperature range
 	locations = inds.spatialPosition;
-	temps = p1.spatialMapValue(TEMPMAP, locations);
+	temps = TEMPMAP.mapValue(locations);
 	fitness[temps < (-5.0 + 6.830664)
 	                | individual_temperatures > (28 - 4.97887)] = 0.0;	                
 	inds.fitnessScaling = fitness;
