@@ -53,8 +53,8 @@ initialize() {
 	sim.addSubpop("p1", asInteger(K * WIDTH * HEIGHT));
 	p1.setSpatialBounds(c(0, 0, WIDTH, HEIGHT));
 	p1.defineSpatialMap("elevation", "xy", elevation_map.floatK, interpolate=T, valueRange=c(0,1), colors=c("#0000FF", "#FFFFFF")); // this map is (only) for visualizing elevation in the GUI
-	temperature_spatmap = p1.defineSpatialMap("Temperature", "xy", Temperature, interpolate=T, valueRange=c(0,1), colors=c("#FFFFFF", "#0000FF"));
-	defineGlobal("TEMPERATURE_SPATMAP", temperature_spatmap);	
+	spatmap = p1.defineSpatialMap("Temperature", "xy", Temperature, interpolate=T, valueRange=c(0,1), colors=c("#FFFFFF", "#0000FF"));
+	defineGlobal("TEMPMAP", spatmap);	
 	p1.individuals.setSpatialPosition(p1.pointUniform(p1.individualCount));
 	i1.evaluate(sim.subpopulations);	
 	community.rescheduleScriptBlock(s1, ticks=BURNIN + RUNTIME);
@@ -82,18 +82,18 @@ early() {
 	offspring.setSpatialPosition(pos);
 	
 	// update temperature (0.016 / year; and assuming ticks are years, here)
-	TEMPERATURE_SPATMAP.add(0.016); // increase global temperature
+	TEMPMAP.add(0.016); // increase global temperature
 	
 	// random noise: each year can be a 'hot' or 'cold' year 
 	s = 2; // between-year std dev
 	annual_stddev = rnorm(1,0,s);
-	TEMPERATURE_SPATMAP.add(annual_stddev);
+	TEMPMAP.add(annual_stddev);
 
 	print("");
-	print(c("sim cycle:", sim.cycle, "Temperature:", range(TEMPERATURE_SPATMAP.gridValues())));
+	print(c("sim cycle:", sim.cycle, "Temperature:", TEMPMAP.range()));
 	
 	// calculate % habitable space
-	temps =	TEMPERATURE_SPATMAP.gridValues()
+	temps =	TEMPMAP.gridValues()
 	// without stochasticity
 	mydata = c(p1.individualCount, sum((temps)>(-5.0 + 6.830664) & (temps)<(28 - 4.97887)) / length(temps));
 	// // with stochasticity
@@ -113,7 +113,7 @@ early() {
 	
 	// kill indivs. outside optimal temperature range
 	locations = inds.spatialPosition;
-	temps = p1.spatialMapValue(TEMPERATURE_SPATMAP, locations);
+	temps = p1.spatialMapValue(TEMPMAP, locations);
 	fitness[temps < (-5.0 + 6.830664)
 	                | individual_temperatures > (28 - 4.97887)] = 0.0;	                
 	inds.fitnessScaling = fitness;
