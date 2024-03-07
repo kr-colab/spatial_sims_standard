@@ -1,5 +1,7 @@
 # Standardizing spatial simulations on SLiM
 
+**code:** [github.com/kr-colab/spatial_sims_standard](https://github.com/kr-colab/spatial_sims_standard)
+
 This is a repository of examples scripts to run SLiM simulations on (continuous) spatial landscapes.
 The goal of these examples is to make it easy to explore various ways of setting up such simulations,
 to choose parameters to roughly model a given system,
