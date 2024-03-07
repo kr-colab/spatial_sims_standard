@@ -6,41 +6,28 @@ initialize() {
 	defaults = Dictionary(
 		"seed", getSeed(),
 		"SD", 0.3, // sigma_D, dispersal distance
-		"SI", 0.3, // sigma_I, interaction distance for competition
+		"SX", 0.3, // sigma_X, interaction distance for measuring local density
 		"SM", 0.3, // sigma_M, mate choice distance
-		"SV", 0.0, // sigma_V, adult movement distance (defaults to none)
-		"K", 5, // carrying capacity per unit square
+		"SV", 0.0, // sigma_V, adult movement distance
+		"K", 5, // carrying capacity per unit area
 		"LIFETIME", 4, // average life span
 		"WIDTH", 25.0, // width of the simulated area
 		"HEIGHT", 25.0, // height of the simulated area
 		"RUNTIME", 200, // total number of ticks to run the simulation for
 		"L", 1e8, // genome length
-		"R", 1e-8, // recombination rate (per tick)
-		"MU", 0, // mutation rate (per tick)
-		"OUTDIR", exists("OUTDIR") ? OUTDIR else ".",
-		"PARAMFILE", exists("PARAMFILE") ? PARAMFILE else "./params.json"
+		"R", 1e-8, // recombination rate
+		"MU", 0 // mutation rate
 		);
-	if (fileExists(defaults.getValue("PARAMFILE"))){
-		local_defaults = Dictionary(paste(readFile(defaults.getValue("PARAMFILE")), sep="\n"));
-		defaults.addKeysAndValuesFrom(local_defaults);
-		defaults.setValue("read_from_paramfile", defaults.getValue("PARAMFILE"));
-	}
-	defaults.setValue("OUTBASE", defaults.getValue("OUTDIR") + "/out_" + defaults.getValue("seed"));
-	defaults.setValue("OUTPATH", defaults.getValue("OUTBASE") + ".trees");
+
+	// Set up parameters with a user-defined function
+	setupParams(defaults);
 	
-	catn("-------------\n");
-	for (k in defaults.allKeys) {
-		if (!exists(k)) {
-			defineConstant(k, defaults.getValue(k));
-		} else {
-			defaults.setValue(k, executeLambda(paste(c(k, ";"), sep='')));
-		}
-		catn("  " + k + ": " + defaults.getValue(k));
-	}
-	catn("-------------\n");
+	// Set up constants that depend on externally defined parameters
+	
+	defineConstant("FECUN", 1 / LIFETIME);
+	defineConstant("RHO", FECUN / ((1 + FECUN) * K));
 	defineGlobal("PARAMS", defaults);
-	defineConstant("FECUN", 1/LIFETIME);
-	defineConstant("RHO", FECUN/((1+FECUN)*K));
+	
 	setSeed(seed);
 	
 	initializeMutationRate(MU);
@@ -49,29 +36,12 @@ initialize() {
 	initializeGenomicElement(g1, 0, L-1);
 	initializeRecombinationRate(R);
 	
-	
-	
-	// spatial interaction for local competition
-	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=3*SI);
-	// define shape of interaction kernel here (e.g. normal distribution)
-	i1.setInteractionFunction("n", 1.0/sqrt(2*PI*SI^2), SI);
-	
+	// spatial interaction for local density measure
+	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=3 * SX);
+	i1.setInteractionFunction("n", 1, SX);
 	// mate choice
-	initializeInteractionType(2, "xy", reciprocal=T, maxDistance=3*SM);
-	// define shape of mate choice kernel 
-	i2.setInteractionFunction("n", 1.0/sqrt(2*PI*SM^2), SM);
-
-}
-
-
-reproduction(){
-	mate = i2.drawByStrength(individual, 1);
-	if (mate.size()) {
-		nOff = rpois(1, FECUN);
-		offsprings = subpop.addCrossed(individual, mate, count = nOff);
-		locations = subpop.pointDeviated(nOff, individual.spatialPosition, "reflecting", 3 * SD, "n", SD);
-		offsprings.setSpatialPosition(locations);
-	}
+	initializeInteractionType(2, "xy", reciprocal=T, maxDistance=3 * SM);
+	i2.setInteractionFunction("n", 1, SM);
 }
 
 1 first() {
@@ -81,34 +51,41 @@ reproduction(){
 	community.rescheduleScriptBlock(s1, ticks=RUNTIME);
 }
 
-// adult movement block (reflecting boundaries, Gaussian kernel with sigma_V)
-1: first() {
-	if (SV > 0) {
-		for(ind in sim.subpopulations.individuals){
-			do{
-				pos = p1.pointDeviated(1, ind.spatialPosition, "reflecting", INF, "n", SV);
-			}
-			
-			while(!p1.pointInBounds(pos));
-			ind.setSpatialPosition(pos);
-		}
-	}
-}
-
 first() {
+	// adult movement (reflecting boundaries, Gaussian kernel with sigma_V)
+	if (SV > 0) {
+		inds = p1.individuals;
+		pos = inds.spatialPosition;
+		pos = p1.pointDeviated(inds.size(), pos, "reflecting", INF, "n", SV);
+		inds.setSpatialPosition(pos);
+	}
+	// preparation for the reproduction() callback
 	i2.evaluate(p1);
 }
 
+reproduction(){
+	mate = i2.drawByStrength(individual, 1);
+	if (mate.size())
+		offsprings = subpop.addCrossed(individual, mate, count=rpois(1, FECUN));
+}
+
 early() {
+	// Disperse offspring
+	offspring = p1.subsetIndividuals(maxAge = 0);
+	pos = offspring.spatialPosition;
+	pos = p1.pointDeviated(offspring.size(), pos, "reprising", INF, "n", SD);
+	offspring.setSpatialPosition(pos);
+
+	// Measure local density and use it for density regulation	
 	i1.evaluate(p1);
 	inds = p1.individuals;
 	competition = i1.localPopulationDensity(inds);
-	inds.fitnessScaling = 1/(1+RHO*competition);
+	inds.fitnessScaling = 1 / (1 + RHO * competition);
 }
 
 late() {
 	if ((p1.individualCount == 0)){
-		catn("Population went extinct! Ending the simulation");
+		catn("Population went extinct! Ending the simulation.");
 		sim.simulationFinished();
 	}
 }
@@ -117,4 +94,35 @@ s1 late() {
 	catn("End of simulation (run time reached)");
 	sim.treeSeqOutput(OUTPATH, metadata=PARAMS);
 	sim.simulationFinished();
+}
+
+function (void)setupParams(object<Dictionary>$ defaults)
+{
+	if (!exists("PARAMFILE")) defineConstant("PARAMFILE", "./params.json");
+	if (!exists("OUTDIR")) defineConstant("OUTDIR", ".");
+	defaults.addKeysAndValuesFrom(Dictionary("PARAMFILE", PARAMFILE, "OUTDIR", OUTDIR));
+	
+	if (fileExists(PARAMFILE)){
+		local_defaults = Dictionary(readFile(PARAMFILE), sep="\n");
+		defaults.addKeysAndValuesFrom(local_defaults);
+		defaults.setValue("read_from_paramfile", PARAMFILE);
+	}
+	
+	defaults.setValue("OUTBASE", OUTDIR + "/out_" +	defaults.getValue("seed"));
+	defaults.setValue("OUTPATH", defaults.getValue("OUTBASE") + ".trees");
+	
+	for (k in defaults.allKeys) {
+		if (!exists(k)) {
+			defineConstant(k, defaults.getValue(k));
+		}
+		else {
+			defaults.setValue(k, executeLambda(paste(c(k, ";"), sep='')));
+		}
+	}
+	
+	// print out default values
+	catn("===========================");
+	catn("Model constants: " + defaults.serialize());
+	catn("===========================");
+
 }
