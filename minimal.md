@@ -15,7 +15,7 @@ but it is for easily adjusting a script to model a given system,
 and for running computational experiment
 (e.g., seeing how results change as dispersal is modified).
 
-Next we walk through the sections of [`mortality.slim`](mortality.slim).
+Next we walk through the sections of [`minimal.slim`](minimal.slim).
 *But first:* open the file up yourself, in SLiM's GUI,
 and follow along there!
 
