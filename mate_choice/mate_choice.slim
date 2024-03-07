@@ -2,6 +2,7 @@ initialize() {
 	initializeSLiMModelType("nonWF");
 	initializeSLiMOptions(dimensionality="xy");
 	initializeTreeSeq();
+	// BCH: I think "dioecy" is misspelled, but I'm no expert.  And did we settle on that being the correct term?
 	initializeSex("A");		// individuals are either male or female (dieocy)
 	
 	defaults = Dictionary(
@@ -41,6 +42,9 @@ initialize() {
 	// mate choice
 	initializeInteractionType(2, "xy", reciprocal=T, maxDistance=3 * SM);
 	i2.setInteractionFunction("n", 1, SM);
+	// BCH: I'm not sure why the comment below mentions offspring *dispersing* from females; why is that a relevant point here?
+	// Perhaps the text explains, but it seems like it'd be clear to just say "model female choosiness" and leave it at that?
+	// (There are lots of species where males are choosy but offspring still disperse from the females, no?)
 	// model female choosiness, where offspring only disperse from females
 	i2.setConstraints("receiver", sex="F");
 	i2.setConstraints("exerter", sex="M");
@@ -57,11 +61,16 @@ first() {
 	i2.evaluate(p1);  // evaluate mate choice interaction values
 }
 
-reproduction(NULL, "F"){			// females choose a male mate
+reproduction(NULL, "F") {			// females choose a male mate
 	mate = i2.drawByStrength(individual, 1);
-	if (mate.size()) 
+	if (mate.size())
+	// BCH: Hmm, FECUN doubled because only females reproduce.  I mean, doubling it makes
+	// perfect sense; but shouldn't the value of the parameter itself be doubled, up above,
+	// rather than doubling it here at the point it is used?  If females in a sexual
+	// species have an average of 5 offspring, you'd normally call the mean fecundity 5,
+	// not 2.5, right?  So FECUN should then be 5, not 2.5 and then doubled here?
 		// fecundity is doubled because only females reproduce
-		offspring = subpop.addCrossed(individual, mate, count = rpois(1, 2 * FECUN));
+		offspring = subpop.addCrossed(individual, mate, count=rpois(1, 2 * FECUN));
 }
 
 early() {
@@ -79,7 +88,10 @@ early() {
 }
 
 late() {
-	if ((p1.individualCount == 0)){
+// BCH: might be good to just use a diff tool to catch places like this where models diverge from minimal.slim for no reason;
+// diffing against minimal.slim should only show intentional changes.  (Partly for code cleanliness, but also because end
+// users might actually do such diffs themselves to see what the changes are -- I would, as an end user.  :->)
+	if (p1.individualCount == 0) {
 		catn("Population went extinct! Ending the simulation.");
 		sim.simulationFinished();
 	}
