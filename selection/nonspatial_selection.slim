@@ -1,6 +1,9 @@
 initialize() {
 	initializeSLiMModelType("nonWF");
 	initializeSLiMOptions(keepPedigrees=T);
+	// BCH: this comment below is in minimal.slim (which is good); some of the derived
+	// models include it, others don't.  Choose one or the other and be consistent?
+	// Again, using a diff tool to compare against minimal.slim might be helpful for this.
 	// This model uses tree-sequence recording, but it is optional
 	initializeTreeSeq();	
 	
@@ -14,7 +17,9 @@ initialize() {
 		"L", 1e8, // genome length
 		"R", 1e-8, // recombination rate
 		"MU", 0, // mutation rate
-		"S_FEC", 0., // selection coefficient for fecundity-based selection
+	// BCH: I'm personally really not a fan of the style of writing floats with just a trailing ., like "0."; it just looks weird to me,
+	// and it doesn't match the style of the other numbers written below it, which is jarring...
+		"S_FEC", 0.0, // selection coefficient for fecundity-based selection
 		"S_MOR", 0.1, // selection coefficient for mortality-based selection
 		"H_FEC", 0.5, // dominance coefficient for fecundity-based selection
 		"H_MOR", 0.5, // dominance coefficient for mortality-based selection
@@ -41,6 +46,9 @@ initialize() {
 	initializeRecombinationRate(R);
 	
 	// globals for mutation tracking
+	// BCH: I'd suggest that global variables ought to start with a capital letter, but not be all caps?  It's important to
+	// have a coding style that distinguishes these things, I think.  Another popular style is like "gThisIsGlobal", starting
+	// with a lowercase g and then using camelCase; or "g_global"?  Just pick one and be consistent, I'd suggest.
 	defineGlobal("mutationadded", F);
 	defineGlobal("mutationfixed", F);
 }
@@ -50,30 +58,43 @@ initialize() {
 	sim.addSubpop("p1", asInteger(K * WIDTH * HEIGHT));
 	
 	// schedule sim finish
+	// BCH: For a range like this, use the start= and end= parameters, not ticks=
 	community.rescheduleScriptBlock(s1, ticks=BURNIN:RUNTIME);
-	community.rescheduleScriptBlock(s2, ticks=BURNIN+1:RUNTIME);
+	// BCH: Ditto; and was the intent of the expression BURNIN + (1:RUNTIME)?  I suspect not;
+	// (BURNIN + 1):RUNTIME is probably what is desired?  So this is a bug.  It's a very common
+	// bug with the sequence operator; this is also the case in R.  The : operator has very high
+	// precedence, so you need to use parentheses to fix the grouping if it isn't what you want.
+	// Beware!  But anyhow, change to "start=BURNIN + 1, end=RUNTIME" and avoid the whole problem,
+	// as above.
+	community.rescheduleScriptBlock(s2, ticks=(BURNIN + 1):RUNTIME);
 	community.rescheduleScriptBlock(s3, ticks=RUNTIME);
 	
 	// save population state for restarting sim if mutation is lost
-	if (RESTART){ sim.treeSeqOutput(OUTBASE+'_initial_state.trees'); }
+	if (RESTART)
+		sim.treeSeqOutput(OUTBASE+'_initial_state.trees');
 	
 	// set up logging
 	log = community.createLogFile(OUTBASE+'.log', logInterval=1);
 	log.addTick();
 	log.addSubpopulationSize(p1);
-	log.addCustomColumn('allele_freq', 'if (sim.mutations.size()==0) {return NAN;} else{return p1.species.mutationFrequencies(NULL);};');
+	// BCH: I'd suggest that this is a good place to use the ternary conditional operator, ?else
+	log.addCustomColumn('allele_freq', 'return ((sim.mutations.size() == 0) ? NAN else p1.species.mutationFrequencies(NULL));');
 	log.addCustomColumn('mean_offspring', 'mean(p1.lifetimeReproductiveOutput);');
 	log.addCustomColumn('mean_age', 'mean(p1.individuals.age);');
 }
 
 reproduction() {
 	mutcount = sum(individual.genomes.countOfMutationsOfType(m1));
+	// BCH: this is a pretty tangled line of code; maybe just do it as an if-else chain?  Would be nice if Eidos had switch/case...
 	indiv_s = S_FEC * (H_FEC * asFloat(mutcount==1) + asFloat(mutcount==2));
 	mate = subpop.sampleIndividuals(1);
+	// BCH: Not sure what "FECUN * (1 + indiv_s) + indiv_s" is doing; presumably the text explains, but do we want to have explanatory comments in the code too, for cryptic things like this?
 	subpop.addCrossed(individual, mate, count=rpois(1, FECUN * (1 + indiv_s) + indiv_s));
 }
 
 early() {
+// BCH: OK, I'm a bit puzzled here.  This model says in the filename that it is "nonspatial";
+// why is it a spatial model, with a WIDTH and HEIGHT?    Obviously I must be missing something.  :->
 	p1.fitnessScaling = 1 / (1 + RHO * p1.individualCount / (WIDTH * HEIGHT));
 }
 
@@ -87,9 +108,19 @@ late() {
 s1 late() {
 	// add beneficial mutation to individual
 	if (!mutationadded) {
+	// BCH: You can use which() here, but it just makes it slower.  :->
+	// It converts from a logical vector to a positional vector, and you
+	// get the same end result but with extra work in the middle.  But:
+	// if you just want individuals of age 0, use subsetIndividuals(),
+	// which is faster.  But: if you just want to sample one individual
+	// of age zero, use sampleIndividuals(), which will be even faster!
+	// So that's the final answer: target = sampleIndividuals(1, maxAge=0).
+	// Not that speed is everything; but that version is also simpler and clearer.
 		newborns = p1.individuals[which(p1.individuals.age==0)];
 		target = sample(newborns.genomes, 1);
-		target.addNewDrawnMutation(m1, asInteger(L/2));
+		// BCH: or integerDiv(L, 2); I prefer to avoid type-casting when possible
+		target.addNewDrawnMutation(m1, asInteger(L / 2));
+		// BCH: as above, I suggest a different style for global variables
 		defineGlobal("mutationtick", community.tick);
 		defineGlobal("mutationadded", T);
 		catn("Beneficial mutation added at tick " + community.tick);
@@ -98,25 +129,37 @@ s1 late() {
 
 s2 early() {
 	// restart sim if mutation gets lost
-	if (RESTART & mutationadded & sim.countOfMutationsOfType(m1)==0) {
-		//if (sim.countOfMutationsOfType(m1)==0) {
+	if (RESTART & mutationadded & (sim.countOfMutationsOfType(m1) == 0)) {
 		deleteFile(OUTBASE+'.log');
 		cat(community.tick);
-		cat("LOST -- RESTARTING\n");
+		cat(": LOST -- RESTARTING\n");
 		sim.readFromPopulationFile(OUTBASE+'_initial_state.trees');
-		setSeed(rdunif(1, 0, asInteger(2^62) - 1));
+		// BCH: setting the seed is really generally not needed; I've been working on
+		// removing it from the example recipes.  You'll get a different random number
+		// sequence anyway, since you've used up some numbers.  Setting the seed is
+		// only useful if you want to be able to resume the simulation from a
+		// specific restart point, without re-running the whole simulation.  And it
+		// is very confusing for readers.  So I'm de-emphasizing it.
+		// BCH: Why is recalculateFitness() called here?  We're in an early() event,
+		// so fitness is about to get recalculated anyway.  Is this really necessary?
 		sim.recalculateFitness();
-		defineGlobal("mutationadded",F);
+		defineGlobal("mutationadded", F);
 	}
-	
+	// Not sure I like the line below; it works, but only because this model doesn't contain
+	// any other mutations at all, so it is not reusable code at all, and it's kinda
+	// confusing to the reader until they realize that it is based upon that assumption.
+	// How about looking up the m1 mutation and checking its frequency?  Or remembering
+	// the mutation object itself, following section 9.9?
 	else if (p1.species.mutationFrequencies(NULL) == 1.0) {
 		if (FIXSTOP) {
 			// end of simulation if fixed
 			catn("End of simulation (mutation fixed)");
 			sim.treeSeqOutput(OUTPATH, metadata=PARAMS);
 			sim.simulationFinished();
-		}
-		if (!mutationfixed){
+		// BCH: Note that calling simulationFinished() does not stop the model right then and there;
+		// you run to the end of the tick.  So the code below was getting executed, because the
+		// "else" was missing.  Also: not sure what the point of the code below is anyhow.  :->
+		} else if (!mutationfixed) {
 			community.rescheduleScriptBlock(s2, ticks=community.tick + 1);
 			defineGlobal("mutationfixed", T);
 		}
