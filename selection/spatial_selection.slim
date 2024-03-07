@@ -77,7 +77,6 @@ initialize() {
 	log.addCustomColumn('mean_age', 'mean(p1.individuals.age);');
 }
 
-
 first() {
 	// preparation for the reproduction() callback
 	i2.evaluate(p1);
@@ -134,7 +133,6 @@ s1 late() {
 	}
 }
 
-
 s2 early() {
 	// restart sim if mutation gets lost
 	if (RESTART & mutationadded & sim.countOfMutationsOfType(m1)==0) {
@@ -146,8 +144,7 @@ s2 early() {
 		sim.recalculateFitness();
 		i1.evaluate(p1);
 		i2.evaluate(p1);
-		defineGlobal("mutationadded",F);
-	
+		defineGlobal("mutationadded",F);	
 	}
 	
 	else if (p1.species.mutationFrequencies(1, p1.species.mutations[0]) == 1.0) {
@@ -164,13 +161,11 @@ s2 early() {
 	}
 }
 
-
 s3 late() {
 	catn("End of simulation (run time reached)");
 	sim.treeSeqOutput(OUTPATH, metadata=PARAMS);
 	sim.simulationFinished();
 }
-
 
 function (void)setupParams(object<Dictionary>$ defaults)
 {
@@ -200,5 +195,4 @@ function (void)setupParams(object<Dictionary>$ defaults)
 	catn("===========================");
 	catn("Model constants: " + defaults.serialize());
 	catn("===========================");
-
 }
