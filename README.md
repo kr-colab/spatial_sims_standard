@@ -44,8 +44,8 @@ The scripts in each folder follow the same format but have some elements that a 
 ## The examples:
 
 - [`minimal.slim`](minimal.md): a minimal example, that explains the general structure of the scripts.
-- [`maps/`](maps/) (Use a simple map of a mountain to model heterogenous carrying capacity distribution in space) 
-- [`adult_movement/`](adult_movement/) (Individuals continue to move around throughout its lifetime. Appropriate for animals, rather than plants)
+- [`maps/`](maps/README.html): use a simple map of a mountain to model heterogenous carrying capacity distribution in space
+- [`adult_movement/`](adult_movement/README.html) (Individuals continue to move around throughout its lifetime. Appropriate for animals, rather than plants)
 - [`mate_choice/`](mate_choice/) (Dioecious population, offspring dispersed from female parents)
 - [`selection/`](selection/) (Selective sweep in space)
 - `case_studies/`
