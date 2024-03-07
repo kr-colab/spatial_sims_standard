@@ -16,6 +16,7 @@ initialize() {
 		"L", 1e8, // genome length
 		"R", 1e-8, // recombination rate
 		"MU", 0, // mutation rate
+		// BCH: uppercase for global constants, please
 		"min_l", 1.5,
 		"max_l", 3.0,
 		"image_location", "./practice_maps/mountain_height.png"
@@ -48,8 +49,9 @@ initialize() {
 	sim.addSubpop("p1", asInteger(K * WIDTH * HEIGHT));
 	p1.setSpatialBounds(c(0, 0, WIDTH, HEIGHT));
 	p1.individuals.setSpatialPosition(p1.pointUniform(p1.individualCount));
+	
 	mapImage = Image(image_location); // adding the image
-	map_vals = (1-mapImage.floatK) *(max_l-min_l) + min_l; // defining values
+	map_vals = (1 - mapImage.floatK) * (max_l - min_l) + min_l; // defining values
 	map = p1.defineSpatialMap("world", "xy", map_vals, valueRange=c(min_l, max_l), colors=c('#FFFFFF', '#000000'));
 	defineConstant("MAP", map);
 	
@@ -62,7 +64,7 @@ first() {
 	i2.evaluate(p1);
 }
 
-reproduction(){
+reproduction() {
 	mate = i2.drawByStrength(individual, 1);
 	if (mate.size())
 		offsprings = subpop.addCrossed(individual, mate, count=rpois(1, FECUN));
@@ -80,7 +82,7 @@ early() {
 	inds = p1.individuals;
 	competition = i1.localPopulationDensity(inds);
 	local_l = MAP.mapValue(inds.spatialPosition);
-	inds.fitnessScaling = 1/(1 + (RHO * competition / local_l));
+	inds.fitnessScaling = 1 / (1 + (RHO * competition / local_l));
 }
 
 late() {
@@ -88,6 +90,8 @@ late() {
 		catn("Population went extinct! Ending the simulation.");
 		sim.simulationFinished();
 	}
+	
+	// BCH: Why is this here?  If it is just for the benefit of the s1 late() event below, then just do it there.
 	i1.evaluate(p1);
 }
 
@@ -97,14 +101,19 @@ s1 late() {
 	
 	ind_den = i1.localPopulationDensity(inds);
 	local_l = MAP.mapValue(inds.spatialPosition);
-	pixial = (local_l-min_l)/(max_l-min_l);
+	pixial = (local_l - min_l) / (max_l - min_l);
 	
-	mytextfile=OUTBASE+"_by_ind_Ind_values_max_"+max_l+"_min_l_"+ min_l +"_.text";
-	mytextfileinfo = NULL;
 	// printing out information at selected ticks
-	for(i in 0:(length(pixial)-1)){
+	mytextfile = OUTBASE + "_by_ind_Ind_values_max_" + max_l + "_min_l_" + min_l + "_.text";
+	mytextfileinfo = NULL;
+	// BCH: for this pattern use "for (i in seqLen(pixial))"
+	for (i in 0:(length(pixial) - 1)) {
 		catn(pixial[i]);
-		//writing info about density		
+		// BCH: the comment below is a bit vague, and it isn't really clear to me what we're writing here and why.
+		// Part of the problem is that I'm not sure what the variable name "pixial" means...?  Or "local_l" for that matter?
+		// So less cryptic variable names would be helpful for code legibility.
+		// writing info about density		
+		// BCH: I don't think the paste0() call does anything; what is passed to it is already a singleton string, no?
 		mytextfileinfo = c(mytextfileinfo, paste0(sim.cycle + "," + ind_den[i] + "," + pixial[i]));
 	}
 	writeFile(mytextfile, mytextfileinfo, append=T);
@@ -144,5 +153,7 @@ function (void)setupParams(object<Dictionary>$ defaults)
 	catn("===========================");
 	catn("Model constants: " + defaults.serialize());
 	catn("===========================");
+	// BCH: The blank line below should be removed; but more, it makes me worry that this code has not
+	// simply been copy-pasted from minimal.slim.  I'd suggest re-copying once minimal.slim is final.
 
 }
