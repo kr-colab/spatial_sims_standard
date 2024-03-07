@@ -84,25 +84,22 @@ early() {
 	
 	// update temperature (0.016 / year; and assuming ticks are years, here)
 	TEMPMAP.add(0.016); // increase global temperature
-	
-	// random noise: each year can be a 'hot' or 'cold' year 
-	s = 2; // between-year std dev
-	annual_stddev = rnorm(1,0,s);
-	TEMPMAP.add(annual_stddev);
 
 	print("");
 	print(c("sim cycle:", sim.cycle, "Temperature:", TEMPMAP.range()));
-	
-	// calculate % habitable space
-	temps =	TEMPMAP.gridValues();
+		
+	// random noise: each year can be a 'hot' or 'cold' year 
+	s = 2; // between-year std dev
+	annual_stddev = rnorm(1,0,s);
+
+	// calculate % habitable space,
+	temps = TEMPMAP.gridValues();
 	// without stochasticity
 	mydata = c(p1.individualCount, sum(temps > (-5.0 + 6.830664) & temps < (28 - 4.97887)) / length(temps));
-	// // with stochasticity
-	// mydata = c(p1.individualCount, sum((temps+annual_stddev)>(-5.0 + 6.830664) & (temps+annual_stddev)<(28 - 4.97887)) / length(temps));
+	// or with stochasticity
+	// mydata = c(p1.individualCount, sum((temps + annual_stddev)>(-5.0 + 6.830664) & (temps + annual_stddev)<(28 - 4.97887)) / length(temps));
 	writeFile(OUTDIR + "/pika_simdata.txt", paste(mydata, sep='\t'), append=T);
-}
 
-early() {
 	i1.evaluate(p1);
 	inds = p1.individuals;
 	competition = i1.localPopulationDensity(inds);
@@ -113,7 +110,8 @@ early() {
 	
 	// kill indivs. outside optimal temperature range
 	locations = inds.spatialPosition;
-	temps = TEMPMAP.mapValue(locations);
+	// look up temperature from the map (permanent) add annual fluctuation defined earlier
+	temps = TEMPMAP.mapValue(locations) + annual_stddev;
 	fitness[temps < (-5.0 + 6.830664)
 	                | temps > (28 - 4.97887)] = 0.0;	                
 	inds.fitnessScaling = fitness;
