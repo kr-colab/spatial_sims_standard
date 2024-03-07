@@ -1,68 +1,101 @@
 initialize() {
 	initializeSLiMModelType("nonWF");
-	initializeSLiMOptions(keepPedigrees = T, dimensionality="xy");
+	initializeSLiMOptions(dimensionality="xy");
 	initializeTreeSeq();
-	defaults = Dictionary(
-		"seed", getSeed(),
-		"SD", 93.20466, // sigma_D, dispersal distance
-		"SX", 93.20466, // sigma_X, interaction distance for measuring local density
-		"SM", 93.20466, // sigma_M, mate choice distance
-		"K", 2.5e-4, // carrying capacity per unit area
-		"LIFETIME", 3.25, // average life span
-		"WIDTH", 16299, // width of the simulated area
-		"HEIGHT", 16299, // height of the simulated area
-		"BURNIN", 0, // number of ticks before recording
-		"RUNTIME", 1400, // number of ticks to run the simulation for after burn-in
-		"L", 2e9, // genome length
-		"R", 1e-8, // recombination rate
-		"MU", 0, // mutation rate
-		"MAP_FILE", "./e_mat.png",
-		"ELEVATION_RANGE", c(7539, 13507) * 3.048e-4 // elevation range in ft from map legend -> converting to km
-		);
-	
-	// Set up parameters with a user-defined function
-	setupParams(defaults);
-	
-	defineConstant("FECUN", 1 / LIFETIME);
+
+	if (!exists("seed")) {
+		seed = getSeed();
+	}
+	if (!exists("NUMGENS")) {
+		defineConstant("NUMGENS", 1400);
+	}
+	if (!exists("W")) {
+		defineConstant("W", 16299);  // width of the simulated area 
+	}
+	if (!exists("OUTPATH")) {
+		defineConstant("OUTPATH", "test_flat_map." + NUMGENS + "." + seed + ".trees");
+	}
+	if (!exists("SIGMA")) {
+		defineConstant("SIGMA", 93.20466); // 93.20466
+	}
+	if (!exists("SD")) {
+		defineConstant("SD", SIGMA);
+	}
+	if (!exists("SI")) {
+		defineConstant("SI", SIGMA);
+	}
+	if (!exists("K")) {
+		defineConstant("K", 2.5e-4);  // carrying-capacity per unit square (roughly). 2.5e-4
+	}
+	if (!exists("BURNIN")) {
+		defineConstant("BURNIN", 0);  // number of ticks before full recording begins
+	}
+
+	catn(c("NUMGENS =", NUMGENS));
+	catn(c("BURNIN =", BURNIN));
+	catn(c("W =", W));
+	catn(c("SIGMA =", SIGMA));
+	catn(c("K =", K));
+	defineConstant("A", 1.0);  // height/width of the simulated area
+	catn(c("A =", A));
+	catn(c("SD =", SD));
+	catn(c("SI =", SI));
+	defineConstant("SM", SIGMA);  // sigma_M, the mate choice distance
+	catn(c("SM =", SM));
+	defineConstant("L", 3.25);    // mean lifetime at stationarity
+	catn(c("L =", L));
+	defineConstant("G", 2e9);  // genome length
+	catn(c("G =", G));
+	defineConstant("FECUN", 1/L); // mean fecundity
+	catn(c("FECUN =", FECUN));
 	defineConstant("RHO", FECUN/((1+FECUN) * K)); // constant in spatial competition function
-	defineGlobal("PARAMS", defaults);
 
-	setSeed(seed);
-	
-	initializeMutationType("m1", 0.5, "f", 0.0);
+	initializeMutationType("m1", 0.5, "g", 0.0, 2);
 	initializeGenomicElementType("g1", m1, 1.0);
-	initializeGenomicElement(g1, 0, L-1);
-	initializeMutationRate(MU);
-	initializeRecombinationRate(R);
-	
+	initializeGenomicElement(g1, 0, G-1);
+	initializeMutationRate(0.0);
+	initializeRecombinationRate(1e-9);
+
 	// elevation params
-	defineConstant("elevation_map", Image(MAP_FILE));
-	defineGlobal("Elevation", elevation_map.floatK * (ELEVATION_RANGE[1]-ELEVATION_RANGE[0]) + ELEVATION_RANGE[0]);
+	defineConstant("DISPERSAL_MAP_FILE", "./e_mat.png");
+	defineConstant("dispersal_map", Image(DISPERSAL_MAP_FILE));
+	//defineConstant("width", dispersal_map.width); 
+	//defineConstant("height", dispersal_map.height); 
+	defineConstant("width", 16299); // meters
+	defineConstant("height", 16299);
+
+	elevation_range = c(7539, 13507); // elevation (ft) from map legend
+	elevation_range = elevation_range * 3.048e-4; // $ convert to km
+	defineGlobal("Elevation", dispersal_map.floatK * (elevation_range[1]-elevation_range[0]) + elevation_range[0]);
 	defineGlobal("Temperature", -10 * Elevation + 37); // estimate temperature from elevation (Collados-Lara AJ et al., 2020)
-	
-	// spatial competition
-	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=SX * 3);
-	i1.setInteractionFunction("n", 1, SX);
-	
-	// mate choice
-	initializeInteractionType(2, "xy", reciprocal=T, maxDistance=SM * 3);
-	i2.setInteractionFunction("n", 1, SM);
+
+        // spatial competition
+        initializeInteractionType(1, "xy", reciprocal=T, maxDistance=SI * 3);
+        i1.setInteractionFunction("n", 1.0/(2*PI*SI^2), SI);
+
+        // mate choice
+        initializeInteractionType(2, "xy", reciprocal=T, maxDistance=SM * 3);
+        i2.setInteractionFunction("n", 1.0/(2*PI*SM^2), SM);
 }
 
-1 first() {
-	sim.addSubpop("p1", asInteger(K * WIDTH * HEIGHT));
-	p1.setSpatialBounds(c(0, 0, WIDTH, HEIGHT));
-	p1.defineSpatialMap("elevation", "xy", elevation_map.floatK, interpolate=T, valueRange=c(0,1), colors=c("#0000FF", "#FFFFFF")); // this map is (only) for visualizing elevation in the GUI
-	spatmap = p1.defineSpatialMap("Temperature", "xy", Temperature, interpolate=T, valueRange=c(0,1), colors=c("#FFFFFF", "#0000FF"));
-	defineGlobal("TEMPMAP", spatmap);	
-	p1.individuals.setSpatialPosition(p1.pointUniform(p1.individualCount));
-	i1.evaluate(sim.subpopulations);	
-	community.rescheduleScriptBlock(s1, ticks=BURNIN + RUNTIME);
-}
+1 early() {
+        sim.addSubpop("p1", asInteger(K * width * height));
+        p1.setSpatialBounds(c(0, 0, width, height));
+        p1.defineSpatialMap("elevation", "xy", dispersal_map.floatK, interpolate=T, valueRange=c(0,1), colors=c("#0000FF", "#FFFFFF")); // this map is (only) for visualizing elevation in the GUI
+        // random initial positions
+        for (ind in p1.individuals) {
+                ind.setSpatialPosition(p1.pointUniform());
+                ind.tag = 0;
+        }
+        i1.evaluate(sim.subpopulations);
 
-first() {
-	// to be ready for mate choice
-	i2.evaluate(p1);
+        community.rescheduleScriptBlock(s99, ticks=BURNIN + NUMGENS);
+
+        // header info
+        cat("gen" + " " + "stage" + " ");
+        cat("pop_size" + " " + "births" + " ");
+        cat("age" + " " + "density" + " ");
+        catn("neighbor" + " " + "harm_neigh" + " " + "num_off" + " " + "time");
 }
 
 reproduction() {
@@ -70,53 +103,76 @@ reproduction() {
 	mate = i2.drawByStrength(individual, 1);
 	if (mate.size()) {
 		nOff = rpois(1, FECUN);
-		offspring = subpop.addCrossed(individual, mate, count=nOff);
+		// record number of offspring in the tag
+		individual.tag = individual.tag + nOff;
+		for (i in seqLen(rpois(1, 1/L))) {
+			pos = individual.spatialPosition + rnorm(2, 0, SD);
+			if (p1.pointInBounds(pos)) {
+				offspring = subpop.addCrossed(individual, mate);
+				offspring.setSpatialPosition(p1.pointReflected(pos));
+				offspring.tag = 0;
+			}
+		}
 	}
 	return;
 }
 
 early() {
-	// disperse offspring
-	offspring = p1.subsetIndividuals(maxAge = 0);
-	pos = offspring.spatialPosition;
-	pos = p1.pointDeviated(offspring.size(), pos, "reprising", INF, "n", SD);
-	offspring.setSpatialPosition(pos);
-	
 	// update temperature (0.016 / year; and assuming ticks are years, here)
-	TEMPMAP.add(0.016); // increase global temperature
-	
+	defineGlobal("Temperature", Temperature + 0.016); // increase global temperature
+
 	// random noise: each year can be a 'hot' or 'cold' year 
-	s = 2; // between-year std dev
+	s = 2; // between-year std dev   *** NEED REFERENCE ***
 	annual_stddev = rnorm(1,0,s);
-	TEMPMAP.add(annual_stddev);
+	
+///////////////////////////////////////////////////////////////
+	defineGlobal("Temperature", Temperature + annual_stddev); // increase global temperature
+
+	p1.defineSpatialMap("Temperature", "xy", Temperature, interpolate=T, valueRange=c(0,1), colors=c("#FFFFFF", "#0000FF"));
+////////////////////////////////////////////////////////////////
+//	p1.defineSpatialMap("Temperature", "xy", Temperature + annual_stddev, interpolate=T, valueRange=c(0,1), colors=c("#FFFFFF", "#0000FF"));
+////////////////////////////////////////////////////////////////
 
 	print("");
-	print(c("sim cycle:", sim.cycle, "Temperature:", TEMPMAP.range()));
-	
+	print(c("sim cycle:", sim.cycle, "Temperature:", range(Temperature)));
+
 	// calculate % habitable space
-	temps =	TEMPMAP.gridValues();
 	// without stochasticity
-	mydata = c(p1.individualCount, sum(temps > (-5.0 + 6.830664) & temps < (28 - 4.97887)) / length(temps));
-	// // with stochasticity
-	// mydata = c(p1.individualCount, sum((temps+annual_stddev)>(-5.0 + 6.830664) & (temps+annual_stddev)<(28 - 4.97887)) / length(temps));
-	writeFile(OUTDIR + "/pika_simdata.txt", paste(mydata, sep='\t'), append=T);
+	mydata = c(p1.individualCount, sum((Temperature)>(-5.0 + 6.830664) & (Temperature)<(28 - 4.97887)) / length(Temperature));
+	// with stochasticity
+	//mydata = c(p1.individualCount, sum((Temperature+annual_stddev)>(-5.0 + 6.830664) & (Temperature+annual_stddev)<(28 - 4.97887)) / length(Temperature));
+	writeFile("./pika_simdata.txt", paste(mydata, sep='\t'), append=T);
+
 }
 
 early() {
 	i1.evaluate(p1);
 	inds = p1.individuals;
 	competition = i1.localPopulationDensity(inds);
-	
+
 	// record strength of competition in the tagF
 	inds.tagF = competition;
-	fitness = 1 / (1 + RHO * competition);
-	
+	inds.fitnessScaling = 1/(1 + RHO * competition);
+
 	// kill indivs. outside optimal temperature range
-	locations = inds.spatialPosition;
-	temps = TEMPMAP.mapValue(locations);
-	fitness[temps < (-5.0 + 6.830664)
-	                | temps > (28 - 4.97887)] = 0.0;	                
-	inds.fitnessScaling = fitness;
+	locations = inds.spatialPosition; //[ rep(c(T,T), inds.size()) ];     
+	individual_temperatures = p1.spatialMapValue("Temperature", locations);
+	for (i in 0:(length(individual_temperatures)-1))
+	{
+		if (individual_temperatures[i] < (-5.0 + 6.830664)) // range from Beever et al, 2010; includes adjustment for winter cold
+		{
+			inds[i].fitnessScaling = 0;
+		}
+		if (individual_temperatures[i] > (28 - 4.97887)) // includes adjustment for summer heat
+		{
+			inds[i].fitnessScaling = 0;
+		}
+	}
+}
+
+1: late() {
+	// to be ready for mate choice
+	i2.evaluate(p1);
 }
 
 2: late() {
@@ -124,45 +180,15 @@ early() {
 	//  green = many neighbors, few offspring so far
 	//  red = many offspring so far, few neighbors
 	//  yellow = many offspring so far, many neighbors
-	max_n = max(1, p1.lifetimeReproductiveOutput);
-	max_f = max(0.01, p1.individuals.tagF);
+	max_n = max(1, max(p1.individuals.tag));
+	max_f = max(0.01, max(p1.individuals.tagF));
 	max_a = max(p1.individuals.age);
 	for (ind in p1.individuals) {
-		ind.color = rgb2color(c(ind.reproductiveOutput/max_n, ind.tagF/max_f, ind.age/max_a));
+		ind.color = rgb2color(c(ind.tag/max_n, ind.tagF/max_f, ind.age/max_a));
 	}
 }
 
-s1 late() {
+s99 1400 late() {
 	sim.treeSeqOutput(OUTPATH, simplify=F);
 	sim.simulationFinished();
-}
-
-function (void)setupParams(object<Dictionary>$ defaults)
-{
-	if (!exists("PARAMFILE")) defineConstant("PARAMFILE", "./params.json");
-	if (!exists("OUTDIR")) defineConstant("OUTDIR", ".");
-	defaults.addKeysAndValuesFrom(Dictionary("PARAMFILE", PARAMFILE, "OUTDIR", OUTDIR));
-	
-	if (fileExists(PARAMFILE)){
-		local_defaults = Dictionary(readFile(PARAMFILE), sep="\n");
-		defaults.addKeysAndValuesFrom(local_defaults);
-		defaults.setValue("read_from_paramfile", PARAMFILE);
-	}
-	
-	defaults.setValue("OUTBASE", OUTDIR + "/out_" +	defaults.getValue("seed"));
-	defaults.setValue("OUTPATH", defaults.getValue("OUTBASE") + ".trees");
-	
-	for (k in defaults.allKeys) {
-		if (!exists(k)) {
-			defineConstant(k, defaults.getValue(k));
-		}
-		else {
-			defaults.setValue(k, executeLambda(paste(c(k, ";"), sep='')));
-		}
-	}
-	
-	// print out default values
-	catn("===========================");
-	catn("Model constants: " + defaults.serialize());
-	catn("===========================");
 }
