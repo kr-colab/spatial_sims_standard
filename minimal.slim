@@ -1,35 +1,37 @@
 initialize() {
 	initializeSLiMModelType("nonWF");
 	initializeSLiMOptions(dimensionality="xy");
+	
 	// This model uses tree-sequence recording, but it is optional
 	initializeTreeSeq();
 
 	defaults = Dictionary(
+		// BCH: is there a reason that the constant "seed" is lowercase?  I suggest uppercase for all global constants, to distinguish from variables
 		"seed", getSeed(),
-		"SD", 0.3, // sigma_D, dispersal distance
-		"SX", 0.3, // sigma_X, interaction distance for measuring local density
-		"SM", 0.3, // sigma_M, mate choice distance
-		"K", 5, // carrying capacity per unit area
-		"LIFETIME", 4, // average life span
-		"WIDTH", 25.0, // width of the simulated area
+		"SD", 0.3,      // sigma_D, dispersal distance
+		"SX", 0.3,      // sigma_X, interaction distance for measuring local density
+		"SM", 0.3,      // sigma_M, mate choice distance
+		"K", 5,         // carrying capacity per unit area
+		"LIFETIME", 4,  // average life span (ticks)
+		"WIDTH", 25.0,  // width of the simulated area
 		"HEIGHT", 25.0, // height of the simulated area
 		"RUNTIME", 200, // total number of ticks to run the simulation for
-		"L", 1e8, // genome length
-		"R", 1e-8, // recombination rate
-		"MU", 0 // mutation rate
+		"L", 1e8,       // genome length
+		"R", 1e-8,      // recombination rate
+		"MU", 0         // mutation rate
 		);
 	
 	// Set up parameters with a user-defined function
 	setupParams(defaults);
 	
 	// Set up constants that depend on externally defined parameters
-	
 	defineConstant("FECUN", 1 / LIFETIME);
 	defineConstant("RHO", FECUN / ((1 + FECUN) * K));
 	defineGlobal("PARAMS", defaults);
 	
 	setSeed(seed);
 	
+	// basic neutral genetics
 	initializeMutationRate(MU);
 	initializeMutationType("m1", 0.5, "f", 0.0);
 	initializeGenomicElementType("g1", m1, 1.0);
@@ -39,6 +41,7 @@ initialize() {
 	// spatial interaction for local density measure
 	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=3 * SX);
 	i1.setInteractionFunction("n", 1, SX);
+	
 	// mate choice
 	initializeInteractionType(2, "xy", reciprocal=T, maxDistance=3 * SM);
 	i2.setInteractionFunction("n", 1, SM);
@@ -48,6 +51,9 @@ initialize() {
 	sim.addSubpop("p1", asInteger(K * WIDTH * HEIGHT));
 	p1.setSpatialBounds(c(0, 0, WIDTH, HEIGHT));
 	p1.individuals.setSpatialPosition(p1.pointUniform(p1.individualCount));
+	// BCH: Note that rescheduleScriptBlock() will no longer be necessary with SLiM 4.2;
+	// it will be possible to directly declare that s1 should run at tick RUNTIME.
+	// Working now on my machine, but needs some final testing before I push it.
 	community.rescheduleScriptBlock(s1, ticks=RUNTIME);
 }
 
@@ -59,11 +65,13 @@ first() {
 reproduction(){
 	mate = i2.drawByStrength(individual, 1);
 	if (mate.size())
+		// BCH: Since you don't use `offspring` maybe there's no need to assign this to a variable?  Just makes the code (slightly) slower and unnecessarily complex?
 		offspring = subpop.addCrossed(individual, mate, count=rpois(1, FECUN));
 }
 
 early() {
 	// Disperse offspring
+	// BCH: As I've mentioned I think, this will become several lines shorter in SLiM 4.2
 	offspring = p1.subsetIndividuals(maxAge = 0);
 	pos = offspring.spatialPosition;
 	pos = p1.pointDeviated(offspring.size(), pos, "reprising", INF, "n", SD);
@@ -95,9 +103,20 @@ function (void)setupParams(object<Dictionary>$ defaults)
 	if (!exists("OUTDIR")) defineConstant("OUTDIR", ".");
 	defaults.addKeysAndValuesFrom(Dictionary("PARAMFILE", PARAMFILE, "OUTDIR", OUTDIR));
 	
-	if (fileExists(PARAMFILE)){
+	if (fileExists(PARAMFILE)) {
+		// BCH: Does this code work?  I'm trying to figure out what that sep="\n" is doing there and why
+		// it doesn't trigger an error.  Which form of the Dictionary constructor is this using??  If you
+		// want to make a Dictionary from JSON, just pass the JSON string in.  I think that's what the
+		// readFile() call is giving you; but if the JSON file is multiline, because it's prettyprinted,
+		// then you want to join it together, so probably:
+		//
+		// local_defaults = Dictionary(paste0(readFile(PARAMFILE)));
+		//
+		// would do it?  But you should test.  I've made a note to myself that the paste0() should not
+		// be necessary; it should be able to take a vector of springs, as readFile() provides.
 		local_defaults = Dictionary(readFile(PARAMFILE), sep="\n");
 		defaults.addKeysAndValuesFrom(local_defaults);
+		// BCH: global constants should be uppercase
 		defaults.setValue("read_from_paramfile", PARAMFILE);
 	}
 	
@@ -105,16 +124,15 @@ function (void)setupParams(object<Dictionary>$ defaults)
 	defaults.setValue("OUTPATH", defaults.getValue("OUTBASE") + ".trees");
 	
 	for (k in defaults.allKeys) {
-		if (!exists(k)) {
+		if (!exists(k))
 			defineConstant(k, defaults.getValue(k));
-		}
-		else {
+		else
 			defaults.setValue(k, executeLambda(paste(c(k, ";"), sep='')));
-		}
 	}
 	
 	// print out default values
 	catn("===========================");
+	// BCH: Remember to add "pretty" to this once we shift to SLiM 4.2
 	catn("Model constants: " + defaults.serialize());
 	catn("===========================");
 }
