@@ -1,5 +1,7 @@
 # `minimal.slim`: a minimal model
 
+**code:** [minimal.slim](https://github.com/kr-colab/spatial_sims_standard/minimal.slim)
+
 This is a sptial model with Beverton-Holt regulation on mortality
 (i.e., the probability of survival is lower in higher-density regions,
 and the form of this dependence is related to the classic "Beverton-Holt" model).
