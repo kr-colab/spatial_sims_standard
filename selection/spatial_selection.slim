@@ -3,8 +3,7 @@ initialize() {
 	initializeSLiMOptions(keepPedigrees=T, dimensionality="xy");
 	// This model uses tree-sequence recording, but it is optional
 	initializeTreeSeq();
-	
-	
+
 	defaults = Dictionary(
 		"seed", getSeed(),
 		"SD", 0.3, // sigma_D, dispersal distance
@@ -30,8 +29,7 @@ initialize() {
 	// Set up parameters with a user-defined function
 	setupParams(defaults);
 	
-	// Set up constants that depend on externally defined parameters
-	
+	// Set up constants that depend on externally defined parameters	
 	defineConstant("FECUN", 1 / LIFETIME);
 	defineConstant("RHO", FECUN / ((1 + FECUN) * K));
 	defineGlobal("PARAMS", defaults);
@@ -61,7 +59,7 @@ initialize() {
 	sim.addSubpop("p1", asInteger(K * WIDTH * HEIGHT));
 	p1.setSpatialBounds(c(0, 0, WIDTH, HEIGHT));
 	p1.individuals.setSpatialPosition(p1.pointUniform(p1.individualCount));
-	
+
 	// schedule sim finish
 	community.rescheduleScriptBlock(s1, ticks=BURNIN:RUNTIME);
 	community.rescheduleScriptBlock(s2, ticks=BURNIN+1:RUNTIME);
@@ -90,22 +88,17 @@ reproduction(){
 	mutcount = sum(individual.genomes.countOfMutationsOfType(m1));
 	indiv_s = S_FEC * (H_FEC * asFloat(mutcount==1) + asFloat(mutcount==2));
 	mate = i2.drawByStrength(individual, 1);
-	if (mate.size()){
-		nOff = rpois(1, FECUN * (1 + indiv_s) + indiv_s);
-		for (i in seqLen(nOff))
-		{
-			pos = individual.spatialPosition + rnorm(2, 0, SD);
-			if (p1.pointInBounds(pos))   // absorbing boundaries
-			{
-				offspring = subpop.addCrossed(individual, mate);
-				offspring.setSpatialPosition(pos);
-			}
-		}
-	}
-	return;
+	if (mate.size())
+		offspring = subpop.addCrossed(individual, mate, count=rpois(1, FECUN * (1 + indiv_s) + indiv_s));
 }
 
 early() {
+	// Disperse offspring
+	offspring = p1.subsetIndividuals(maxAge = 0);
+	pos = offspring.spatialPosition;
+	pos = p1.pointDeviated(offspring.size(), pos, "reprising", INF, "n", SD);
+	offspring.setSpatialPosition(pos);
+	
 	// Measure local density and use it for density regulation
 	i1.evaluate(p1);
 	inds = p1.individuals;
