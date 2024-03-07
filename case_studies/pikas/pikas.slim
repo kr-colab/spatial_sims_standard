@@ -1,6 +1,6 @@
 initialize() {
 	initializeSLiMModelType("nonWF");
-	initializeSLiMOptions(dimensionality="xy");
+	initializeSLiMOptions(keepPedigrees = T, dimensionality="xy");
 	initializeTreeSeq();
 	defaults = Dictionary(
 		"seed", getSeed(),
@@ -64,6 +64,7 @@ first() {
 	// to be ready for mate choice
 	i2.evaluate(p1);
 }
+
 reproduction() {
 	// choose our nearest neighbor as a mate, within the max distance
 	mate = i2.drawByStrength(individual, 1);
@@ -93,13 +94,12 @@ early() {
 	print(c("sim cycle:", sim.cycle, "Temperature:", TEMPMAP.range()));
 	
 	// calculate % habitable space
-	temps =	TEMPMAP.gridValues()
+	temps =	TEMPMAP.gridValues();
 	// without stochasticity
 	mydata = c(p1.individualCount, sum(temps > (-5.0 + 6.830664) & temps < (28 - 4.97887)) / length(temps));
 	// // with stochasticity
 	// mydata = c(p1.individualCount, sum((temps+annual_stddev)>(-5.0 + 6.830664) & (temps+annual_stddev)<(28 - 4.97887)) / length(temps));
 	writeFile(OUTDIR + "/pika_simdata.txt", paste(mydata, sep='\t'), append=T);
-
 }
 
 early() {
@@ -109,18 +109,15 @@ early() {
 	
 	// record strength of competition in the tagF
 	inds.tagF = competition;
-	fitness = 1/(1 + RHO * competition);
+	fitness = 1 / (1 + RHO * competition);
 	
 	// kill indivs. outside optimal temperature range
 	locations = inds.spatialPosition;
 	temps = TEMPMAP.mapValue(locations);
 	fitness[temps < (-5.0 + 6.830664)
-	                | individual_temperatures > (28 - 4.97887)] = 0.0;	                
+	                | temps > (28 - 4.97887)] = 0.0;	                
 	inds.fitnessScaling = fitness;
-
 }
-
-
 
 2: late() {
 	// GUI COLORS
@@ -168,5 +165,4 @@ function (void)setupParams(object<Dictionary>$ defaults)
 	catn("===========================");
 	catn("Model constants: " + defaults.serialize());
 	catn("===========================");
-
 }
