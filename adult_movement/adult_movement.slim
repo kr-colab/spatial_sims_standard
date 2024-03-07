@@ -3,6 +3,8 @@ initialize() {
 	initializeSLiMOptions(dimensionality="xy");
 	initializeTreeSeq();
 
+// BCH: See changes I suggested to minimal.slim, here and elsewhere; if they are
+// accepted in minimal.slim they should be promulgated to the others...
 	defaults = Dictionary(
 		"seed", getSeed(),
 		"SD", 0.3, // sigma_D, dispersal distance
@@ -59,11 +61,12 @@ first() {
 		pos = p1.pointDeviated(inds.size(), pos, "reflecting", INF, "n", SV);
 		inds.setSpatialPosition(pos);
 	}
+	
 	// preparation for the reproduction() callback
 	i2.evaluate(p1);
 }
 
-reproduction(){
+reproduction() {
 	mate = i2.drawByStrength(individual, 1);
 	if (mate.size())
 		offsprings = subpop.addCrossed(individual, mate, count=rpois(1, FECUN));
@@ -84,7 +87,7 @@ early() {
 }
 
 late() {
-	if ((p1.individualCount == 0)){
+	if (p1.individualCount == 0) {
 		catn("Population went extinct! Ending the simulation.");
 		sim.simulationFinished();
 	}
@@ -96,6 +99,9 @@ s1 late() {
 	sim.simulationFinished();
 }
 
+// BCH: In all my reviews here and following, I will not look at this function again
+// at all; I will assume that any accepted changes from minimal.slim will be copied into
+// the other files.  :->
 function (void)setupParams(object<Dictionary>$ defaults)
 {
 	if (!exists("PARAMFILE")) defineConstant("PARAMFILE", "./params.json");
