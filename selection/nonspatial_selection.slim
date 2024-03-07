@@ -2,8 +2,7 @@ initialize() {
 	initializeSLiMModelType("nonWF");
 	initializeSLiMOptions(keepPedigrees=T);
 	// This model uses tree-sequence recording, but it is optional
-	initializeTreeSeq();
-	
+	initializeTreeSeq();	
 	
 	defaults = Dictionary(
 		"seed", getSeed(),
@@ -70,12 +69,8 @@ initialize() {
 reproduction() {
 	mutcount = sum(individual.genomes.countOfMutationsOfType(m1));
 	indiv_s = S_FEC * (H_FEC * asFloat(mutcount==1) + asFloat(mutcount==2));
-	nOff = rpois(1, FECUN * (1 + indiv_s) + indiv_s);
-	// 1:0 is a c(1, 0), so without an if loop, two offsprings will be generated when nOff = 0.
-	if (nOff > 0){
-		for (i in 1:nOff)
-			subpop.addCrossed(individual, subpop.sampleIndividuals(1));
-	}
+	mate = subpop.sampleIndividuals(1);
+	subpop.addCrossed(individual, mate, count=rpois(1, FECUN * (1 + indiv_s) + indiv_s));
 }
 
 early() {
@@ -100,7 +95,6 @@ s1 late() {
 		catn("Beneficial mutation added at tick " + community.tick);
 	}
 }
-
 
 s2 early() {
 	// restart sim if mutation gets lost
@@ -129,13 +123,11 @@ s2 early() {
 	}
 }
 
-
 s3 late() {
 	catn("End of simulation (run time reached)");
 	sim.treeSeqOutput(OUTPATH, metadata=PARAMS);
 	sim.simulationFinished();
 }
-
 
 function (void)setupParams(object<Dictionary>$ defaults)
 {
@@ -165,5 +157,4 @@ function (void)setupParams(object<Dictionary>$ defaults)
 	catn("===========================");
 	catn("Model constants: " + defaults.serialize());
 	catn("===========================");
-
 }
