@@ -1,3 +1,10 @@
+
+**Note:** This repository is a companion to a paper that is currently in progress.
+This is a "beta" release of these scripts:
+although we believe everything is correct,
+they have not undergone final review,
+and some aspects will probably change before the final release.
+
 # Standardizing spatial simulations on SLiM
 
 **code:** [github.com/kr-colab/spatial_sims_standard](https://github.com/kr-colab/spatial_sims_standard)
