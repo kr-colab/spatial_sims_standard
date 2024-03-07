@@ -42,7 +42,7 @@ The scripts in each folder follow the same format but have some elements that a 
 - `case_studies/`
 	- [`pikas/`](case_studies/pikas/) (pikas on a mountain with temperature rising)
 	- [`toads/`](case_studies/toads/) (Austrailian cane toads' range expansion)
-	- [`mosquito/`](case_studies/mosquito/) (mosquitos with a larval stage that lives only in rivers and seasonal fluctuations)
+	- [`mosquito/`](case_studies/mosquito/) (mosquitos with a larval stage that lives only in water and seasonal fluctuations)
 	- [`monarchs/`](case_studies/monarchs/) (monarch butterflies whose populations are regulated by a discrete set of host plants, that feeds caterpillars)
 
 ## Requirements
