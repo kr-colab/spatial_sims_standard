@@ -124,8 +124,8 @@ early() {
 	//  green = many neighbors, few offspring so far
 	//  red = many offspring so far, few neighbors
 	//  yellow = many offspring so far, many neighbors
-	max_n = max(1, max(p1.lifetimeReproductiveOutput));
-	max_f = max(0.01, max(p1.individuals.tagF));
+	max_n = max(1, p1.lifetimeReproductiveOutput);
+	max_f = max(0.01, p1.individuals.tagF);
 	max_a = max(p1.individuals.age);
 	for (ind in p1.individuals) {
 		ind.color = rgb2color(c(ind.reproductiveOutput/max_n, ind.tagF/max_f, ind.age/max_a));
