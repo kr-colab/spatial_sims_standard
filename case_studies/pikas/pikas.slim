@@ -3,7 +3,7 @@ initialize() {
 	initializeSLiMOptions(keepPedigrees = T, dimensionality="xy");
 	initializeTreeSeq();
 	defaults = Dictionary(
-		"seed", getSeed(),
+		"SEED", getSeed(),
 		"SD", 93.20466, // sigma_D, dispersal distance
 		"SX", 93.20466, // sigma_X, interaction distance for measuring local density
 		"SM", 93.20466, // sigma_M, mate choice distance
@@ -27,7 +27,7 @@ initialize() {
 	defineConstant("RHO", FECUN/((1+FECUN) * K)); // constant in spatial competition function
 	defineGlobal("PARAMS", defaults);
 
-	setSeed(seed);
+	setSeed(SEED);
 	
 	initializeMutationType("m1", 0.5, "f", 0.0);
 	initializeGenomicElementType("g1", m1, 1.0);
@@ -36,8 +36,8 @@ initialize() {
 	initializeRecombinationRate(R);
 	
 	// elevation params
-	defineConstant("elevation_map", Image(MAP_FILE));
-	defineGlobal("Elevation", elevation_map.floatK * (ELEVATION_RANGE[1]-ELEVATION_RANGE[0]) + ELEVATION_RANGE[0]);
+	defineConstant("Elevation_map", Image(MAP_FILE));
+	defineGlobal("Elevation", Elevation_map.floatK * (ELEVATION_RANGE[1]-ELEVATION_RANGE[0]) + ELEVATION_RANGE[0]);
 	defineGlobal("Temperature", -10 * Elevation + 37); // estimate temperature from elevation (Collados-Lara AJ et al., 2020)
 	
 	// spatial competition
@@ -52,7 +52,7 @@ initialize() {
 1 first() {
 	sim.addSubpop("p1", asInteger(K * WIDTH * HEIGHT));
 	p1.setSpatialBounds(c(0, 0, WIDTH, HEIGHT));
-	p1.defineSpatialMap("elevation", "xy", elevation_map.floatK, interpolate=T, valueRange=c(0,1), colors=c("#0000FF", "#FFFFFF")); // this map is (only) for visualizing elevation in the GUI
+	p1.defineSpatialMap("elevation", "xy", Elevation_map.floatK, interpolate=T, valueRange=c(0,1), colors=c("#0000FF", "#FFFFFF")); // this map is (only) for visualizing elevation in the GUI
 	spatmap = p1.defineSpatialMap("Temperature", "xy", Temperature, interpolate=T, valueRange=c(0,1), colors=c("#FFFFFF", "#0000FF"));
 	defineGlobal("TEMPMAP", spatmap);	
 	p1.individuals.setSpatialPosition(p1.pointUniform(p1.individualCount));
@@ -142,7 +142,7 @@ function (void)setupParams(object<Dictionary>$ defaults)
 	defaults.addKeysAndValuesFrom(Dictionary("PARAMFILE", PARAMFILE, "OUTDIR", OUTDIR));
 	
 	if (fileExists(PARAMFILE)){
-		local_defaults = Dictionary(readFile(PARAMFILE), sep="\n");
+		local_defaults = Dictionary(paste0(readFile(PARAMFILE)));
 		defaults.addKeysAndValuesFrom(local_defaults);
 		defaults.setValue("read_from_paramfile", PARAMFILE);
 	}
@@ -151,12 +151,10 @@ function (void)setupParams(object<Dictionary>$ defaults)
 	defaults.setValue("OUTPATH", defaults.getValue("OUTBASE") + ".trees");
 	
 	for (k in defaults.allKeys) {
-		if (!exists(k)) {
+		if (!exists(k))
 			defineConstant(k, defaults.getValue(k));
-		}
-		else {
+		else
 			defaults.setValue(k, executeLambda(paste(c(k, ";"), sep='')));
-		}
 	}
 	
 	// print out default values

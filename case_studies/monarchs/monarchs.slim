@@ -4,7 +4,7 @@ species all initialize() {
     // Default parameters; can be overwritten by params.json.
     defaults = Dictionary(
         // General params:
-        "seed", getSeed(),
+        "SEED", getSeed(),
         "RUN_LENGTH", 520,
         "SIM_HEIGHT", 50.0,  // The migration route consists of an additional 10x this height.
         "SIM_WIDTH", 50.0,
@@ -23,7 +23,7 @@ species all initialize() {
         "CATERPILLARS_FED_PER_MILKWEED", 2
     );
     setupParams(defaults);
-    setSeed(seed);
+    setSeed(SEED);
 
     initializeSLiMModelType("nonWF");
 
@@ -36,34 +36,6 @@ species all initialize() {
     // Reproduction part 2
     initializeInteractionType(3, "xy", reciprocal=T, maxDistance=BUTTERFLY_MILKWEED_DISTANCE);
     i3.setConstraints("receiver", sex="F");  // Interaction by which females find milkweed.
-}
-
-function (void)setupParams(object<Dictionary>$ defaults) {
-    if (!exists("PARAMFILE")) defineConstant("PARAMFILE", "./params.json");
-    if (!exists("OUTDIR")) defineConstant("OUTDIR", ".");
-    defaults.addKeysAndValuesFrom(Dictionary("PARAMFILE", PARAMFILE, "OUTDIR", OUTDIR));
-
-    if (fileExists(PARAMFILE)) {
-        local_defaults = Dictionary(readFile(PARAMFILE), sep="\n");
-        defaults.addKeysAndValuesFrom(local_defaults);
-        defaults.setValue("read_from_paramfile", PARAMFILE);
-    }
-
-    defaults.setValue("OUTBASE", OUTDIR + "/out_" + defaults.getValue("seed"));
-    defaults.setValue("OUTPATH", defaults.getValue("OUTBASE") + ".trees");
-
-    for (k in defaults.allKeys) {
-        if (!exists(k)) {
-            defineConstant(k, defaults.getValue(k));
-        }
-        else {
-            defaults.setValue(k, executeLambda(paste(c(k, ";"), sep='')));
-        }
-    }
-    // print out default values
-    catn("===========================");
-    catn("Model constants: " + defaults.serialize());
-    catn("===========================");
 }
 
 species milkweed_plant initialize() {
@@ -249,4 +221,32 @@ ticks all s1 late() {
     // End of simulation.
     catn("End of simulation.");
     community.simulationFinished();
+}
+
+function (void)setupParams(object<Dictionary>$ defaults) {
+    if (!exists("PARAMFILE")) defineConstant("PARAMFILE", "./params.json");
+    if (!exists("OUTDIR")) defineConstant("OUTDIR", ".");
+    defaults.addKeysAndValuesFrom(Dictionary("PARAMFILE", PARAMFILE, "OUTDIR", OUTDIR));
+
+    if (fileExists(PARAMFILE)) {
+        local_defaults = Dictionary(paste0(readFile(PARAMFILE)));
+        defaults.addKeysAndValuesFrom(local_defaults);
+        defaults.setValue("read_from_paramfile", PARAMFILE);
+    }
+
+    defaults.setValue("OUTBASE", OUTDIR + "/out_" + defaults.getValue("seed"));
+    defaults.setValue("OUTPATH", defaults.getValue("OUTBASE") + ".trees");
+
+    for (k in defaults.allKeys) {
+        if (!exists(k)) {
+            defineConstant(k, defaults.getValue(k));
+        }
+        else {
+            defaults.setValue(k, executeLambda(paste(c(k, ";"), sep='')));
+        }
+    }
+    // print out default values
+    catn("===========================");
+    catn("Model constants: " + defaults.serialize());
+    catn("===========================");
 }

@@ -1,29 +1,30 @@
 initialize() {
 	initializeSLiMModelType("nonWF");
 	initializeSLiMOptions(keepPedigrees=T, dimensionality="xy");
+
 	// This model uses tree-sequence recording, but it is optional
 	initializeTreeSeq();
 
 	defaults = Dictionary(
-		"seed", getSeed(),
-		"SD", 0.3, // sigma_D, dispersal distance
-		"SX", 0.3, // sigma_X, interaction distance for measuring local density
-		"SM", 0.3, // sigma_M, mate choice distance
-		"K", 5, // carrying capacity per unit area
-		"LIFETIME", 4, // average life span
-		"WIDTH", 25.0, // width of the simulated area
-		"HEIGHT", 25.0, // height of the simulated area
-		"RUNTIME", 2000, // total number of ticks to run the simulation for
-		"L", 1e8, // genome length
-		"R", 1e-8, // recombination rate
-		"MU", 0, // mutation rate
-		"S_FEC", 0., // selection coefficient for fecundity-based selection
-		"S_MOR", 0.5, // selection coefficient for mortality-based selection
-		"H_FEC", 0.5, // dominance coefficient for fecundity-based selection
-		"H_MOR", 0.5, // dominance coefficient for mortality-based selection
-		"BURNIN", 10, // how many ticks to run the simulation for before adding focal mutation
-		"FIXSTOP", T, // whether to stop the simulation once the mutation is fixed
-		"RESTART", T // whether to restart the simulation if the mutation is lost
+		"SEED", getSeed(),
+		"SD", 0.3,	// sigma_D, dispersal distance
+		"SX", 0.3,	// sigma_X, interaction distance for measuring local density
+		"SM", 0.3,	// sigma_M, mate choice distance
+		"K", 5,	// carrying capacity per unit area
+		"LIFETIME", 4,	// average life span in ticks
+		"WIDTH", 25.0,	// width of the simulated area
+		"HEIGHT", 25.0,	// height of the simulated area
+		"RUNTIME", 2000,	// total number of ticks to run the simulation for
+		"L", 1e8,	// genome length
+		"R", 1e-8,	// recombination rate
+		"MU", 0,	// mutation rate
+		"S_FEC", 0.0,	// selection coefficient for fecundity-based selection
+		"S_MOR", 0.5,	// selection coefficient for mortality-based selection
+		"H_FEC", 0.5,	// dominance coefficient for fecundity-based selection
+		"H_MOR", 0.5,	// dominance coefficient for mortality-based selection
+		"BURNIN", 10,	// how many ticks to run the simulation for before adding focal mutation
+		"FIXSTOP", T,	// whether to stop the simulation once the mutation is fixed
+		"RESTART", T	// whether to restart the simulation if the mutation is lost
 		);
 	
 	// Set up parameters with a user-defined function
@@ -34,7 +35,7 @@ initialize() {
 	defineConstant("RHO", FECUN / ((1 + FECUN) * K));
 	defineGlobal("PARAMS", defaults);
 	
-	setSeed(seed);
+	setSeed(SEED);
 	
 	initializeMutationRate(MU);
 	initializeMutationType("m1", H_MOR, "f", S_MOR);
@@ -45,13 +46,14 @@ initialize() {
 	// spatial interaction for local density measure
 	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=3 * SX);
 	i1.setInteractionFunction("n", 1, SX);
+	
 	// mate choice
 	initializeInteractionType(2, "xy", reciprocal=T, maxDistance=3 * SM);
 	i2.setInteractionFunction("n", 1, SM);
 	
 	// globals for mutation tracking
-	defineGlobal("mutationadded", F);
-	defineGlobal("mutationfixed", F);
+	defineGlobal("MUTATIONADDED", F);
+	defineGlobal("MUTATIONFIXED", F);
 }
 
 1 first() {
@@ -61,18 +63,19 @@ initialize() {
 	p1.individuals.setSpatialPosition(p1.pointUniform(p1.individualCount));
 
 	// schedule sim finish
-	community.rescheduleScriptBlock(s1, ticks=BURNIN:RUNTIME);
-	community.rescheduleScriptBlock(s2, ticks=BURNIN+1:RUNTIME);
+	community.rescheduleScriptBlock(s1, start=BURNIN, end=RUNTIME);
+	community.rescheduleScriptBlock(s2, start=BURNIN+1, end=RUNTIME);
 	community.rescheduleScriptBlock(s3, ticks=RUNTIME);
 	
 	// save population state for restarting sim if mutation is lost
-	if (RESTART){ sim.treeSeqOutput(OUTBASE+'_initial_state.trees'); }
+	if (RESTART)
+		sim.treeSeqOutput(OUTBASE+'_initial_state.trees');
 	
 	// set up logging
 	log = community.createLogFile(OUTBASE+'.log', logInterval=1);
 	log.addTick();
 	log.addSubpopulationSize(p1);
-	log.addCustomColumn('allele_freq', 'if (sim.mutations.size()==0) {return NAN;} else{return p1.species.mutationFrequencies(NULL);};');
+	log.addCustomColumn('allele_freq', 'return ((sim.mutations.size() == 0) ? NAN else p1.species.mutationFrequencies(NULL));');
 	log.addCustomColumn('mean_offspring', 'mean(p1.lifetimeReproductiveOutput);');
 	log.addCustomColumn('mean_age', 'mean(p1.individuals.age);');
 }
@@ -82,13 +85,13 @@ first() {
 	i2.evaluate(p1);
 }
 
-reproduction(){
+reproduction() {
 	// individual fitness based on mutation count
 	mutcount = sum(individual.genomes.countOfMutationsOfType(m1));
 	indiv_s = S_FEC * (H_FEC * asFloat(mutcount==1) + asFloat(mutcount==2));
 	mate = i2.drawByStrength(individual, 1);
 	if (mate.size())
-		offspring = subpop.addCrossed(individual, mate, count=rpois(1, FECUN * (1 + indiv_s) + indiv_s));
+		subpop.addCrossed(individual, mate, count=rpois(1, FECUN * (1 + indiv_s) + indiv_s));
 }
 
 early() {
@@ -114,15 +117,15 @@ late() {
 
 s1 late() {
 	// add beneficial mutation to individual near landscape center (within 1/25 of the width/height of overall landscape) if it hasn't been
-	if (!mutationadded) {
+	if (!MUTATIONADDED) {
 		xinds = p1.individuals[((WIDTH/2)-(WIDTH/25)) < p1.individuals.x & p1.individuals.x < (WIDTH/2)+(WIDTH/25)];
 		yinds = p1.individuals[((HEIGHT/2)-(HEIGHT/25))< p1.individuals.y & p1.individuals.y < (HEIGHT/2)+(HEIGHT/25)];
 		centerind = setIntersection(xinds, yinds);
 		ages = centerind.age;
 		inds = centerind[which(ages==0)];
 		
-		if (length(inds)>0) {
-			defineGlobal("mutationadded", T);
+		if (length(inds) > 0) {
+			defineGlobal("MUTATIONADDED", T);
 			ind = sample(inds, 1);
 			target = sample(ind.genomes, 1);
 			target.addNewDrawnMutation(m1, asInteger(L/2));
@@ -135,7 +138,7 @@ s1 late() {
 
 s2 early() {
 	// restart sim if mutation gets lost
-	if (RESTART & mutationadded & sim.countOfMutationsOfType(m1)==0) {
+	if (RESTART & MUTATIONADDED & sim.countOfMutationsOfType(m1)==0) {
 		deleteFile(OUTBASE+'.log');
 		cat(community.tick);
 		cat("LOST -- RESTARTING\n");
@@ -144,7 +147,7 @@ s2 early() {
 		sim.recalculateFitness();
 		i1.evaluate(p1);
 		i2.evaluate(p1);
-		defineGlobal("mutationadded",F);	
+		defineGlobal("MUTATIONADDED", F);	
 	}
 	
 	else if (p1.species.mutationFrequencies(1, p1.species.mutations[0]) == 1.0) {
@@ -154,10 +157,8 @@ s2 early() {
 			sim.treeSeqOutput(OUTPATH, metadata=PARAMS);
 			sim.simulationFinished();
 		}
-		if (!mutationfixed){
-			//community.rescheduleScriptBlock(s2, ticks=community.tick + 1);
-			defineGlobal("mutationfixed", T);
-		}
+		else if (!MUTATIONFIXED)
+			defineGlobal("MUTATIONFIXED", T);
 	}
 }
 

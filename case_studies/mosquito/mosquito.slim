@@ -3,11 +3,11 @@ initialize() {
 	initializeSLiMOptions(dimensionality="xy");
 	initializeSex("A");
 	defaults = Dictionary(
-		"seed", getSeed(),
-		"SD", 1000., // sigma_D, dispersal distance (in meters)
-		"SX", 20., // sigma_X, interaction distance for measuring local density
-		"SM", 1000., // sigma_M, mate choice distance
-		"SV", 1000, // sigma_V, adult travel distance
+		"SEED", getSeed(),
+		"SD", 1000.0, // sigma_D, dispersal distance (in meters)
+		"SX", 20.0, // sigma_X, interaction distance for measuring local density
+		"SM", 1000.0, // sigma_M, mate choice distance
+		"SV", 1000.0, // sigma_V, adult travel distance
 		"K", 0.004, // carrying capacity per unit area of larvae
 		"XMIN", -3.7 * 1000, // map left boundary
 		"XMAX", 0.9 * 1000, // map right boundary
@@ -15,7 +15,7 @@ initialize() {
 		"YMAX", 13.2 * 1000, // map top boundary
 		"ADULTMORTALITY", 0.125,
 		"JUVMORTALITY", 0.05, // base mortality for larvae per day
-		"FECUN", 2., // average number of eggs per day per female adult
+		"FECUN", 2, // average number of eggs per day per female adult
 		"MATURATIONTIME", 10, // minimum age (in days) when individuals can start mating
 		"RECORDTIME", 300,
 		"RECORDINTERVAL", 50,
@@ -34,8 +34,9 @@ initialize() {
 	
 	defineGlobal("PARAMS", defaults);
 	
-	setSeed(seed);
+	setSeed(SEED);
 	
+	// basic neutral genetics
 	initializeMutationType("m1", 0.5, "f", 0.0);
 	initializeGenomicElementType("g1", m1, 1.0);
 	initializeGenomicElement(g1, 0, L-1);
@@ -82,7 +83,7 @@ first() {
 	i2.evaluate(p1);
 }
 
-reproduction(p1, "F"){
+reproduction(p1, "F") {
 	mate = i2.drawByStrength(individual, 1);
 	if (mate.size())
 		offspring = subpop.addCrossed(individual, mate, count=rpois(1, FECUN));
@@ -155,7 +156,7 @@ function (void)setupParams(object<Dictionary>$ defaults)
 	defaults.addKeysAndValuesFrom(Dictionary("PARAMFILE", PARAMFILE, "OUTDIR", OUTDIR));
 	
 	if (fileExists(PARAMFILE)){
-		local_defaults = Dictionary(readFile(PARAMFILE), sep="\n");
+		local_defaults = Dictionary(paste0(readFile(PARAMFILE)));
 		defaults.addKeysAndValuesFrom(local_defaults);
 		defaults.setValue("read_from_paramfile", PARAMFILE);
 	}
@@ -164,17 +165,14 @@ function (void)setupParams(object<Dictionary>$ defaults)
 	defaults.setValue("OUTPATH", defaults.getValue("OUTBASE"));
 	
 	for (k in defaults.allKeys) {
-		if (!exists(k)) {
+		if (!exists(k))
 			defineConstant(k, defaults.getValue(k));
-		}
-		else {
+		else
 			defaults.setValue(k, executeLambda(paste(c(k, ";"), sep='')));
-		}
 	}
 	
 	// print out default values
 	catn("===========================");
 	catn("Model constants: " + defaults.serialize());
 	catn("===========================");
-
 }
