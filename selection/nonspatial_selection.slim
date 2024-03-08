@@ -1,11 +1,12 @@
 initialize() {
 	initializeSLiMModelType("nonWF");
 	initializeSLiMOptions(keepPedigrees=T);
+
 	// This model uses tree-sequence recording, but it is optional
 	initializeTreeSeq();	
 	
 	defaults = Dictionary(
-		"seed", getSeed(),
+		"SEED", getSeed(),
 		"K", 5, // carrying capacity per unit area
 		"LIFETIME", 4, // average life span
 		"HEIGHT", 25, 		// height of simulation map
@@ -27,12 +28,11 @@ initialize() {
 	setupParams(defaults);
 	
 	// Set up constants that depend on externally defined parameters
-	
 	defineConstant("FECUN", 1 / LIFETIME);
 	defineConstant("RHO", FECUN / ((1 + FECUN) * K));
 	defineGlobal("PARAMS", defaults);
 	
-	setSeed(seed);
+	setSeed(SEED);
 	
 	initializeMutationRate(MU);
 	initializeMutationType("m1", H_MOR, "f", S_MOR);
@@ -116,7 +116,7 @@ s2 early() {
 			sim.treeSeqOutput(OUTPATH, metadata=PARAMS);
 			sim.simulationFinished();
 		}
-		if (!mutationfixed){
+		if (!mutationfixed) {
 			community.rescheduleScriptBlock(s2, ticks=community.tick + 1);
 			defineGlobal("mutationfixed", T);
 		}
@@ -136,7 +136,7 @@ function (void)setupParams(object<Dictionary>$ defaults)
 	defaults.addKeysAndValuesFrom(Dictionary("PARAMFILE", PARAMFILE, "OUTDIR", OUTDIR));
 	
 	if (fileExists(PARAMFILE)){
-		local_defaults = Dictionary(readFile(PARAMFILE), sep="\n");
+		local_defaults = Dictionary(paste(readFile(PARAMFILE)));
 		defaults.addKeysAndValuesFrom(local_defaults);
 		defaults.setValue("read_from_paramfile", PARAMFILE);
 	}
@@ -145,12 +145,10 @@ function (void)setupParams(object<Dictionary>$ defaults)
 	defaults.setValue("OUTPATH", defaults.getValue("OUTBASE") + ".trees");
 	
 	for (k in defaults.allKeys) {
-		if (!exists(k)) {
+		if (!exists(k))
 			defineConstant(k, defaults.getValue(k));
-		}
-		else {
+		else
 			defaults.setValue(k, executeLambda(paste(c(k, ";"), sep='')));
-		}
 	}
 	
 	// print out default values

@@ -4,7 +4,7 @@ species all initialize() {
     // Default parameters; can be overwritten by params.json.
     defaults = Dictionary(
         // General params:
-        "seed", getSeed(),
+        "SEED", getSeed(),
         "RUN_LENGTH", 520,
         "SIM_HEIGHT", 50.0,  // The migration route consists of an additional 10x this height.
         "SIM_WIDTH", 50.0,
@@ -23,7 +23,7 @@ species all initialize() {
         "CATERPILLARS_FED_PER_MILKWEED", 2
     );
     setupParams(defaults);
-    setSeed(seed);
+    setSeed(SEED);
 
     initializeSLiMModelType("nonWF");
 
@@ -44,7 +44,7 @@ function (void)setupParams(object<Dictionary>$ defaults) {
     defaults.addKeysAndValuesFrom(Dictionary("PARAMFILE", PARAMFILE, "OUTDIR", OUTDIR));
 
     if (fileExists(PARAMFILE)) {
-        local_defaults = Dictionary(readFile(PARAMFILE), sep="\n");
+        local_defaults = Dictionary(paste(readFile(PARAMFILE)));
         defaults.addKeysAndValuesFrom(local_defaults);
         defaults.setValue("read_from_paramfile", PARAMFILE);
     }
@@ -53,12 +53,10 @@ function (void)setupParams(object<Dictionary>$ defaults) {
     defaults.setValue("OUTPATH", defaults.getValue("OUTBASE") + ".trees");
 
     for (k in defaults.allKeys) {
-        if (!exists(k)) {
+        if (!exists(k))
             defineConstant(k, defaults.getValue(k));
-        }
-        else {
+        else
             defaults.setValue(k, executeLambda(paste(c(k, ";"), sep='')));
-        }
     }
     // print out default values
     catn("===========================");

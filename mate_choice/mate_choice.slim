@@ -2,21 +2,21 @@ initialize() {
 	initializeSLiMModelType("nonWF");
 	initializeSLiMOptions(dimensionality="xy");
 	initializeTreeSeq();
-	initializeSex("A");		// individuals are either male or female (dieocy)
+	initializeSex("A");	// individuals are either male or female (dioecy)
 	
 	defaults = Dictionary(
-		"seed", getSeed(),
-		"SD", 0.3, // sigma_D, dispersal distance
-		"SX", 0.3, // sigma_X, interaction distance for measuring local density
-		"SM", 0.3, // sigma_M, mate choice distance
-		"K", 5, // carrying capacity per unit area
-		"LIFETIME", 4, // average life span
-		"WIDTH", 25.0, // width of the simulated area
-		"HEIGHT", 25.0, // height of the simulated area
-		"RUNTIME", 200, // total number of ticks to run the simulation for
-		"L", 1e8, // genome length
-		"R", 1e-8, // recombination rate
-		"MU", 0 // mutation rate
+		"SEED", getSeed(),
+		"SD", 0.3,	// sigma_D, dispersal distance
+		"SX", 0.3,	// sigma_X, interaction distance for measuring local density
+		"SM", 0.3,	// sigma_M, mate choice distance
+		"K", 10,	// carrying capacity per unit area
+		"LIFETIME", 4,	// average life span
+		"WIDTH", 25.0,	// width of the simulated area
+		"HEIGHT", 25.0,	// height of the simulated area
+		"RUNTIME", 200,	// total number of ticks to run the simulation for
+		"L", 1e8,	// genome length
+		"R", 1e-8,	// recombination rate
+		"MU", 0	// mutation rate
 		);
 
 	// Set up parameters with a user-defined function
@@ -27,8 +27,9 @@ initialize() {
 	defineConstant("RHO", FECUN / ((1 + FECUN) * K));
 	defineGlobal("PARAMS", defaults);
 	
-	setSeed(seed);
+	setSeed(SEED);
 	
+	// basic neutral genetics
 	initializeMutationRate(MU);
 	initializeMutationType("m1", 0.5, "f", 0.0);
 	initializeGenomicElementType("g1", m1, 1.0);
@@ -38,10 +39,12 @@ initialize() {
 	// spatial interaction for local density measure
 	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=3 * SX);
 	i1.setInteractionFunction("n", 1, SX);
+
 	// mate choice
 	initializeInteractionType(2, "xy", reciprocal=T, maxDistance=3 * SM);
 	i2.setInteractionFunction("n", 1, SM);
-	// model female choosiness, where offspring only disperse from females
+	
+	// model female choosiness
 	i2.setConstraints("receiver", sex="F");
 	i2.setConstraints("exerter", sex="M");
 }
@@ -57,7 +60,7 @@ first() {
 	i2.evaluate(p1);  // evaluate mate choice interaction values
 }
 
-reproduction(NULL, "F"){			// females choose a male mate
+reproduction(NULL, "F") {		// females choose a male mate
 	mate = i2.drawByStrength(individual, 1);
 	if (mate.size()) 
 		// fecundity is doubled because only females reproduce
@@ -65,7 +68,7 @@ reproduction(NULL, "F"){			// females choose a male mate
 }
 
 early() {
-	// Disperse offspring
+	// Disperse offspring (dispersed around female parent)
 	offspring = p1.subsetIndividuals(maxAge = 0);
 	pos = offspring.spatialPosition;
 	pos = p1.pointDeviated(offspring.size(), pos, "reprising", INF, "n", SD);
@@ -79,7 +82,7 @@ early() {
 }
 
 late() {
-	if ((p1.individualCount == 0)){
+	if ((p1.individualCount == 0)) {
 		catn("Population went extinct! Ending the simulation.");
 		sim.simulationFinished();
 	}
@@ -97,8 +100,8 @@ function (void)setupParams(object<Dictionary>$ defaults)
 	if (!exists("OUTDIR")) defineConstant("OUTDIR", ".");
 	defaults.addKeysAndValuesFrom(Dictionary("PARAMFILE", PARAMFILE, "OUTDIR", OUTDIR));
 	
-	if (fileExists(PARAMFILE)){
-		local_defaults = Dictionary(readFile(PARAMFILE), sep="\n");
+	if (fileExists(PARAMFILE)) {
+		local_defaults = Dictionary(paste(readFile(PARAMFILE)));
 		defaults.addKeysAndValuesFrom(local_defaults);
 		defaults.setValue("read_from_paramfile", PARAMFILE);
 	}
@@ -107,12 +110,10 @@ function (void)setupParams(object<Dictionary>$ defaults)
 	defaults.setValue("OUTPATH", defaults.getValue("OUTBASE") + ".trees");
 	
 	for (k in defaults.allKeys) {
-		if (!exists(k)) {
+		if (!exists(k))
 			defineConstant(k, defaults.getValue(k));
-		}
-		else {
+		else
 			defaults.setValue(k, executeLambda(paste(c(k, ";"), sep='')));
-		}
 	}
 	
 	// print out default values
