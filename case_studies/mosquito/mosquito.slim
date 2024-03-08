@@ -3,7 +3,7 @@ initialize() {
 	initializeSLiMOptions(dimensionality="xy");
 	initializeSex("A");
 	defaults = Dictionary(
-		"seed", getSeed(),
+		"SEED", getSeed(),
 		"SD", 1000., // sigma_D, dispersal distance (in meters)
 		"SX", 20., // sigma_X, interaction distance for measuring local density
 		"SM", 1000., // sigma_M, mate choice distance
@@ -25,6 +25,7 @@ initialize() {
 		"MU", 0, // mutation rate
 		"IMAGE_PATH", "./river_greyscale.png"
 		);
+		
 	// Set up parameters with a user-defined function
 	setupParams(defaults);
 	
@@ -34,7 +35,7 @@ initialize() {
 	
 	defineGlobal("PARAMS", defaults);
 	
-	setSeed(seed);
+	setSeed(SEED);
 	
 	initializeMutationType("m1", 0.5, "f", 0.0);
 	initializeGenomicElementType("g1", m1, 1.0);
@@ -46,13 +47,13 @@ initialize() {
 	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=SX*3);
 	i1.setInteractionFunction("n", 1, SX);
 	i1.setConstraints("both", maxAge=MATURATIONTIME);
+	
 	// dioecious mating
 	initializeInteractionType(2, "xy", reciprocal=T, maxDistance=SM*3);
 	i2.setInteractionFunction("n", 1, SM);
 	i2.setConstraints("receiver", sex="F", minAge=MATURATIONTIME+1);
 	i2.setConstraints("exerter", sex="M", minAge=MATURATIONTIME+1);
 }
-
 
 1 first() {
 	sim.addSubpop("p1", asInteger(K * WIDTH * HEIGHT));
@@ -82,10 +83,10 @@ first() {
 	i2.evaluate(p1);
 }
 
-reproduction(p1, "F"){
+reproduction(p1, "F") {
 	mate = i2.drawByStrength(individual, 1);
 	if (mate.size())
-		offspring = subpop.addCrossed(individual, mate, count=rpois(1, FECUN));
+		subpop.addCrossed(individual, mate, count=rpois(1, FECUN));
 }
 
 early() {
@@ -143,7 +144,7 @@ s1 late() {
 		stop("Error writing csv file.");
 }
 
-s2 late(){
+s2 late() {
 	catn("End of simulation (run time reached)");
 	sim.simulationFinished();
 }
@@ -154,7 +155,7 @@ function (void)setupParams(object<Dictionary>$ defaults)
 	if (!exists("OUTDIR")) defineConstant("OUTDIR", ".");
 	defaults.addKeysAndValuesFrom(Dictionary("PARAMFILE", PARAMFILE, "OUTDIR", OUTDIR));
 	
-	if (fileExists(PARAMFILE)){
+	if (fileExists(PARAMFILE)) {
 		local_defaults = Dictionary(paste(readFile(PARAMFILE)));
 		defaults.addKeysAndValuesFrom(local_defaults);
 		defaults.setValue("read_from_paramfile", PARAMFILE);
@@ -164,17 +165,14 @@ function (void)setupParams(object<Dictionary>$ defaults)
 	defaults.setValue("OUTPATH", defaults.getValue("OUTBASE") + ".trees");
 	
 	for (k in defaults.allKeys) {
-		if (!exists(k)) {
+		if (!exists(k))
 			defineConstant(k, defaults.getValue(k));
-		}
-		else {
+		else
 			defaults.setValue(k, executeLambda(paste(c(k, ";"), sep='')));
-		}
 	}
 	
 	// print out default values
 	catn("===========================");
 	catn("Model constants: " + defaults.serialize());
 	catn("===========================");
-
 }

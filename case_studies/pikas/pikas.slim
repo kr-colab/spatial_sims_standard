@@ -3,7 +3,7 @@ initialize() {
 	initializeSLiMOptions(keepPedigrees = T, dimensionality="xy");
 	initializeTreeSeq();
 	defaults = Dictionary(
-		"seed", getSeed(),
+		"SEED", getSeed(),
 		"SD", 93.20466, // sigma_D, dispersal distance
 		"SX", 93.20466, // sigma_X, interaction distance for measuring local density
 		"SM", 93.20466, // sigma_M, mate choice distance
@@ -27,7 +27,7 @@ initialize() {
 	defineConstant("RHO", FECUN/((1+FECUN) * K)); // constant in spatial competition function
 	defineGlobal("PARAMS", defaults);
 
-	setSeed(seed);
+	setSeed(SEED);
 	
 	initializeMutationType("m1", 0.5, "f", 0.0);
 	initializeGenomicElementType("g1", m1, 1.0);
@@ -70,7 +70,7 @@ reproduction() {
 	mate = i2.drawByStrength(individual, 1);
 	if (mate.size()) {
 		nOff = rpois(1, FECUN);
-		offspring = subpop.addCrossed(individual, mate, count=nOff);
+		subpop.addCrossed(individual, mate, count=nOff);
 	}
 	return;
 }
@@ -141,7 +141,7 @@ function (void)setupParams(object<Dictionary>$ defaults)
 	if (!exists("OUTDIR")) defineConstant("OUTDIR", ".");
 	defaults.addKeysAndValuesFrom(Dictionary("PARAMFILE", PARAMFILE, "OUTDIR", OUTDIR));
 	
-	if (fileExists(PARAMFILE)){
+	if (fileExists(PARAMFILE)) {
 		local_defaults = Dictionary(paste(readFile(PARAMFILE)));
 		defaults.addKeysAndValuesFrom(local_defaults);
 		defaults.setValue("read_from_paramfile", PARAMFILE);
@@ -151,12 +151,10 @@ function (void)setupParams(object<Dictionary>$ defaults)
 	defaults.setValue("OUTPATH", defaults.getValue("OUTBASE") + ".trees");
 	
 	for (k in defaults.allKeys) {
-		if (!exists(k)) {
+		if (!exists(k))
 			defineConstant(k, defaults.getValue(k));
-		}
-		else {
+		else
 			defaults.setValue(k, executeLambda(paste(c(k, ";"), sep='')));
-		}
 	}
 	
 	// print out default values

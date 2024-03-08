@@ -133,7 +133,7 @@ reproduction(NULL, "F") {
 	mate = i2.nearestInteractingNeighbors(individual, 1);
 	nOff = rpois(1, FECUN);
 	if (mate.size()) {
-		offspring = subpop.addCrossed(individual, mate, count=nOff);
+		subpop.addCrossed(individual, mate, count=nOff);
 	}
 	return;
 }
@@ -201,12 +201,10 @@ function (void)setupParams(object<Dictionary>$ defaults)
 	defaults.setValue("OUTPATH", defaults.getValue("OUTBASE") + ".trees");
 	
 	for (k in defaults.allKeys) {
-		if (!exists(k)) {
+		if (!exists(k))
 			defineConstant(k, defaults.getValue(k));
-		}
-		else {
+		else
 			defaults.setValue(k, executeLambda(paste(c(k, ";"), sep='')));
-		}
 	}
 	
 	// print out default values
