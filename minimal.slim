@@ -7,17 +7,21 @@ initialize() {
 
 	defaults = Dictionary(
 		"SEED", getSeed(),
-		"SD", 0.3,	// sigma_D, dispersal distance
-		"SX", 0.3,	// sigma_X, interaction distance for measuring local density
-		"SM", 0.3,	// sigma_M, mate choice distance
-		"K", 5,	// carrying capacity per unit area
-		"LIFETIME", 4,	// average life span
-		"WIDTH", 25.0,	// width of the simulated area
-		"HEIGHT", 25.0,	// height of the simulated area
-		"RUNTIME", 200,	// total number of ticks to run the simulation for
-		"L", 1e8,	// genome length
-		"R", 1e-8,	// recombination rate
-		"MU", 0	// mutation rate
+		// BCH I think I suggested adding spaces before the comments last review,
+		// but that change didn't seem to "take".  Maybe someone disagrees?  Or
+		// the diffs were reviewed with whitespace insensitivity?  To me, this
+		// padding makes things significantly more readable.  :->
+		"SD", 0.3,        // sigma_D, dispersal distance
+		"SX", 0.3,        // sigma_X, interaction distance for measuring local density
+		"SM", 0.3,        // sigma_M, mate choice distance
+		"K", 5,           // carrying capacity per unit area
+		"LIFETIME", 4,    // average life span
+		"WIDTH", 25.0,    // width of the simulated area
+		"HEIGHT", 25.0,   // height of the simulated area
+		"RUNTIME", 200,   // total number of ticks to run the simulation for
+		"L", 1e8,         // genome length
+		"R", 1e-8,        // recombination rate
+		"MU", 0           // mutation rate
 		);
 	
 	// Set up parameters with a user-defined function
@@ -26,6 +30,13 @@ initialize() {
 	// Set up constants that depend on externally defined parameters
 	defineConstant("FECUN", 1 / LIFETIME);
 	defineConstant("RHO", FECUN / ((1 + FECUN) * K));
+	// BCH: Why is PARAMS defined with defineGlobal() instead of
+	// defineConstant()?  Note that making it a constant still
+	// allows you to modify the contents of the dictionary.  What
+	// is "constant" is what the symbol PARAMS is bound to: you
+	// can't redefine PARAMS to be a different dictionary object
+	// instead, or to be 3.1415, or whatever.  It seems like that
+	// is what we want, no?  So it should use defineConstant().
 	defineGlobal("PARAMS", defaults);
 	
 	setSeed(SEED);
@@ -37,7 +48,9 @@ initialize() {
 	initializeGenomicElement(g1, 0, L-1);
 	initializeRecombinationRate(R);
 	
-	// spatial interaction for local density measure
+	// BCH: I'd suggest either removing "spatial interaction for" here,
+	// or adding it to the "mate choice" comment below, either way...
+	// spatial interaction for local density measurement
 	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=3 * SX);
 	i1.setInteractionFunction("n", 1, SX);
 	
@@ -66,7 +79,13 @@ reproduction() {
 
 early() {
 	// Disperse offspring
-	offspring = p1.subsetIndividuals(maxAge = 0);
+	// BCH: Just to clarify why I've removed the spaces in the line below,
+	// I suggest using = without spaces for function/method arguments,
+	// and = with spaces for assignment statements.  Just makes calls a
+	// little more concise, and visually differentiates the two distinct
+	// uses of =.  Personal preference, but I think it's a nice style, and
+	// SLiMgui's pretty printing does it for you.  :->
+	offspring = p1.subsetIndividuals(maxAge=0);
 	pos = offspring.spatialPosition;
 	pos = p1.pointDeviated(offspring.size(), pos, "reprising", INF, "n", SD);
 	offspring.setSpatialPosition(pos);
@@ -103,14 +122,17 @@ function (void)setupParams(object<Dictionary>$ defaults)
 		defaults.setValue("read_from_paramfile", PARAMFILE);
 	}
 	
-	defaults.setValue("OUTBASE", OUTDIR + "/out_" +	defaults.getValue("seed"));
+	// BCH: I think `seed` needs to be `SEED` here, matching what is defined at top, no?
+	defaults.setValue("OUTBASE", OUTDIR + "/out_" +	defaults.getValue("SEED"));
 	defaults.setValue("OUTPATH", defaults.getValue("OUTBASE") + ".trees");
 	
 	for (k in defaults.allKeys) {
 		if (!exists(k))
 			defineConstant(k, defaults.getValue(k));
 		else
-			defaults.setValue(k, executeLambda(paste(c(k, ";"), sep='')));
+		// BCH: I believe the streamlined code below ought to work
+		// the same, but it should be tested of course.  :->
+			defaults.setValue(k, executeLambda(k + ";"));
 	}
 	
 	// print out default values
