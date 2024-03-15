@@ -7,20 +7,20 @@ initialize() {
 	
 	defaults = Dictionary(
 		"SEED", getSeed(),
-		"K", 5, // carrying capacity per unit area
-		"LIFETIME", 4, // average life span
-		"HEIGHT", 25, 		// height of simulation map
-		"WIDTH", 25, 		// width of simulation map
-		"RUNTIME", 2000, // total number of ticks to run the simulation for
-		"L", 1e8, // genome length
-		"R", 1e-8, // recombination rate
-		"MU", 0, // mutation rate
-		"S_FEC", 0., // selection coefficient for fecundity-based selection
-		"S_MOR", 0.1, // selection coefficient for mortality-based selection
-		"H_FEC", 0.5, // dominance coefficient for fecundity-based selection
-		"H_MOR", 0.5, // dominance coefficient for mortality-based selection
-		"BURNIN", 10, // how many ticks to run the simulation for before adding focal mutation
-		"FIXSTOP", T, // whether to stop the simulation once the mutation is fixed
+		"K", 5,	// carrying capacity per unit area
+		"LIFETIME", 4,	// average life span
+		"HEIGHT", 25,	// height of simulation map
+		"WIDTH", 25,	// width of simulation map
+		"RUNTIME", 2000,	// total number of ticks to run the simulation for
+		"L", 1e8,	// genome length
+		"R", 1e-8,	// recombination rate
+		"MU", 0,	// mutation rate
+		"S_FEC", 0.0,	// selection coefficient for fecundity-based selection
+		"S_MOR", 0.1,	// selection coefficient for mortality-based selection
+		"H_FEC", 0.5,	// dominance coefficient for fecundity-based selection
+		"H_MOR", 0.5,	// dominance coefficient for mortality-based selection
+		"BURNIN", 10,	// how many ticks to run the simulation for before adding focal mutation
+		"FIXSTOP", T,	// whether to stop the simulation once the mutation is fixed
 		"RESTART", T // whether to restart the simulation if the mutation is lost
 		);
 	
@@ -135,7 +135,7 @@ function (void)setupParams(object<Dictionary>$ defaults)
 	if (!exists("OUTDIR")) defineConstant("OUTDIR", ".");
 	defaults.addKeysAndValuesFrom(Dictionary("PARAMFILE", PARAMFILE, "OUTDIR", OUTDIR));
 	
-	if (fileExists(PARAMFILE)){
+	if (fileExists(PARAMFILE)) {
 		local_defaults = Dictionary(paste(readFile(PARAMFILE)));
 		defaults.addKeysAndValuesFrom(local_defaults);
 		defaults.setValue("read_from_paramfile", PARAMFILE);
