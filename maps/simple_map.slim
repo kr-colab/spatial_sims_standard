@@ -105,7 +105,8 @@ s1 late() {
 	// printing out information at selected ticks
 	for(i in seq(0, len(pixial))) {
 		catn(pixial[i]);
-		//writing info about density		
+		
+	// writing info about density
 		mytextfileinfo = c(mytextfileinfo, paste0(sim.cycle + "," + ind_den[i] + "," + pixial[i]));
 	}
 	writeFile(mytextfile, mytextfileinfo, append=T);

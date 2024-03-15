@@ -78,7 +78,7 @@ early() {
 	pos = p1.pointDeviated(offspring.size(), pos, "reprising", INF, "n", SD);
 	offspring.setSpatialPosition(pos);
 
-	// Measure local density and use it for density regulation	
+	// Measure local density and use it for density regulation
 	i1.evaluate(p1);
 	inds = p1.individuals;
 	competition = i1.localPopulationDensity(inds);
@@ -86,7 +86,7 @@ early() {
 }
 
 late() {
-	if ((p1.individualCount == 0)){
+	if ((p1.individualCount == 0)) {
 		catn("Population went extinct! Ending the simulation.");
 		sim.simulationFinished();
 	}

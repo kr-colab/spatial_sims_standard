@@ -57,14 +57,16 @@ initialize() {
 }
 
 first() {
-	i2.evaluate(p1);  // evaluate mate choice interaction values
+	// preparation for the reproduction() callback
+	i2.evaluate(p1);
 }
 
-reproduction(NULL, "F") {		// females choose a male mate
+// females choose a male mate
+reproduction(NULL, "F") {
 	mate = i2.drawByStrength(individual, 1);
-	if (mate.size()) 
+	if (mate.size())
 		// fecundity is doubled because only females reproduce
-		offspring = subpop.addCrossed(individual, mate, count = rpois(1, 2 * FECUN));
+		subpop.addCrossed(individual, mate, count = rpois(1, 2 * FECUN));
 }
 
 early() {
