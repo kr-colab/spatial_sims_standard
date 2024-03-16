@@ -4,18 +4,30 @@ initialize() {
 	
 	defaults = Dictionary(
 		"SEED", getSeed(),
-		"SD", 0.3,	// sigma_D, dispersal distance
-		"SX", 0.3,	// sigma_X, interaction distance for measuring local density
-		"SM", 0.3,	// sigma_M, mate choice distance
-		"K", 5,	// carrying capacity per unit area
-		"LIFETIME", 4,	// average life span
-		"WIDTH", 25.0,	// width of the simulated area
-		"HEIGHT", 25.0,	// height of the simulated area
-		"RUNTIME", 300,	// total number of ticks to run the simulation for
-		"OUTPUTTIME", c(200, 250, 299),	// when to save density information
-		"L", 1e8,	// genome length
-		"R", 1e-8,	// recombination rate
-		"MU", 0,	// mutation rate
+		// sigma_D, dispersal distance
+		"SD", 0.3,
+		// sigma_X, interaction distance for measuring local density
+		"SX", 0.3,
+		// sigma_M, mate choice distance
+		"SM", 0.3,
+		// carrying capacity per unit area
+		"K", 5,
+		// average life span
+		"LIFETIME", 4,
+		// width of the simulated area
+		"WIDTH", 25.0,
+		// height of the simulated area
+		"HEIGHT", 25.0,
+		// total number of ticks to run the simulation for
+		"RUNTIME", 300,
+		// when to save density information
+		"OUTPUTTIME", c(200, 250, 299),
+		// genome length
+		"L", 1e8,
+		// recombination rate
+		"R", 1e-8,
+		// mutation rate
+		"MU", 0,
 		"MIN_L", 1.5,
 		"MAX_L", 3.0,
 		"IMAGE_LOCATION", "./practice_maps/mountain_height.png"
@@ -24,9 +36,10 @@ initialize() {
 	// Set up parameters with a user-defined function
 	setupParams(defaults);
 	
+	// Set up constants that depend on externally defined parameters
 	defineConstant("FECUN", 1 / LIFETIME);
 	defineConstant("RHO", FECUN / ((1 + FECUN) * K));
-	defineGlobal("PARAMS", defaults);
+	defineConstant("PARAMS", defaults);
 	
 	setSeed(SEED);
 	
@@ -37,11 +50,11 @@ initialize() {
 	initializeGenomicElement(g1, 0, L-1);
 	initializeRecombinationRate(R);
 	
-	// spatial interaction for local density measure
+	// spatial interaction for local density measurement
 	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=3 * SX);
 	i1.setInteractionFunction("n", 1, SX);
 	
-	// mate choice
+	// spatial interaction for mate choice
 	initializeInteractionType(2, "xy", reciprocal=T, maxDistance=3 * SM);
 	i2.setInteractionFunction("n", 1, SM);
 }
@@ -64,7 +77,7 @@ first() {
 	i2.evaluate(p1);
 }
 
-reproduction(){
+reproduction() {
 	mate = i2.drawByStrength(individual, 1);
 	if (mate.size())
 		subpop.addCrossed(individual, mate, count=rpois(1, FECUN));
@@ -72,7 +85,7 @@ reproduction(){
 
 early() {
 	// Disperse offspring
-	offspring = p1.subsetIndividuals(maxAge = 0);
+	offspring = p1.subsetIndividuals(maxAge=0);
 	pos = offspring.spatialPosition;
 	pos = p1.pointDeviated(offspring.size(), pos, "reprising", INF, "n", SD);
 	offspring.setSpatialPosition(pos);
@@ -131,13 +144,13 @@ function (void)setupParams(object<Dictionary>$ defaults)
 		defaults.setValue("read_from_paramfile", PARAMFILE);
 	}
 	
-	defaults.setValue("OUTBASE", OUTDIR + "/out_" +	defaults.getValue("seed"));
+	defaults.setValue("OUTBASE", OUTDIR + "/out_" +	defaults.getValue("SEED"));
 	
 	for (k in defaults.allKeys) {
 		if (!exists(k))
 			defineConstant(k, defaults.getValue(k));
 		else
-			defaults.setValue(k, executeLambda(paste(c(k, ";"), sep='')));
+			defaults.setValue(k, executeLambda(k + ";"));
 	}
 	
 	// print out default values
