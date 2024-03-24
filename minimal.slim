@@ -5,30 +5,26 @@ initialize() {
 	// This model uses tree-sequence recording, but it is optional
 	initializeTreeSeq();
 	
+	// BCH: Hmm, putting the comments onto separate lines makes this twice as long.
+	// I'm definitely not a fan.  I liked them being on the same line as it was before;
+	// I just wanted spaces added before the comments so that they lined up, as I have
+	// done again below.  Does somebody dislike that style for some reason?  If so,
+	// then I guess I vote for the ragged comment line, as it was originally.  Taking
+	// up twice as much vertical space is my least favorite; and it's harder to figure
+	// out whether the comments refer to the line above or the line below, too.
 	defaults = Dictionary(
 		"SEED", getSeed(),
-		// sigma_D, dispersal distance
-		"SD", 0.3,
-		// sigma_X, interaction distance for measuring local density
-		"SX", 0.3,
-		// sigma_M, mate choice distance
-		"SM", 0.3,
-		// carrying capacity per unit area
-		"K", 5,
-		// average life span
-		"LIFETIME", 4,
-		// width of the simulated area
-		"WIDTH", 25.0,
-		// height of the simulated area
-		"HEIGHT", 25.0,
-		// total number of ticks to run the simulation for
-		"RUNTIME", 200,
-		// genome length
-		"L", 1e8,
-		// recombination rate
-		"R", 1e-8,
-		// mutation rate
-		"MU", 0
+		"SD", 0.3,         // sigma_D, dispersal distance
+		"SX", 0.3,         // sigma_X, interaction distance for measuring local density
+		"SM", 0.3,         // sigma_M, mate choice distance
+		"K", 5,            // carrying capacity per unit area
+		"LIFETIME", 4,     // average life span
+		"WIDTH", 25.0,     // width of the simulated area
+		"HEIGHT", 25.0,    // height of the simulated area
+		"RUNTIME", 200,    // total number of ticks to run the simulation for
+		"L", 1e8,          // genome length
+		"R", 1e-8,         // recombination rate
+		"MU", 0            // mutation rate
 		);
 	
 	// Set up parameters with a user-defined function
@@ -61,7 +57,6 @@ initialize() {
 	sim.addSubpop("p1", asInteger(K * WIDTH * HEIGHT));
 	p1.setSpatialBounds(c(0, 0, WIDTH, HEIGHT));
 	p1.individuals.setSpatialPosition(p1.pointUniform(p1.individualCount));
-	community.rescheduleScriptBlock(s1, ticks=RUNTIME);
 }
 
 first() {
@@ -78,9 +73,7 @@ reproduction() {
 early() {
 	// Disperse offspring
 	offspring = p1.subsetIndividuals(maxAge=0);
-	pos = offspring.spatialPosition;
-	pos = p1.pointDeviated(offspring.size(), pos, "reprising", INF, "n", SD);
-	offspring.setSpatialPosition(pos);
+	p1.deviatePositions(offspring, "reprising", INF, "n", SD);	// SLiM 4.2 addition
 	
 	// Measure local density and use it for density regulation
 	i1.evaluate(p1);
@@ -96,7 +89,7 @@ late() {
 	}
 }
 
-s1 late() {
+RUNTIME late() {	// BCH: rescheduleScriptBlock() no longer needed, yay!
 	catn("End of simulation (run time reached)");
 	sim.treeSeqOutput(OUTPATH, metadata=PARAMS);
 	sim.simulationFinished();
@@ -109,9 +102,12 @@ function (void)setupParams(object<Dictionary>$ defaults)
 	defaults.addKeysAndValuesFrom(Dictionary("PARAMFILE", PARAMFILE, "OUTDIR", OUTDIR));
 	
 	if (fileExists(PARAMFILE)) {
-		local_defaults = Dictionary(paste(readFile(PARAMFILE)));
+		// BCH: maybe get rid of the local_defaults variable and just
+		// do defaults.addKeysAndValuesFrom(Dictionary(readFile(PARAMFILE)))
+		// since the code has gotten so short now?
+		local_defaults = Dictionary(readFile(PARAMFILE));	// BCH: paste() not needed in SLiM 4.2
 		defaults.addKeysAndValuesFrom(local_defaults);
-		defaults.setValue("read_from_paramfile", PARAMFILE);
+		defaults.setValue("read_from_paramfile", PARAMFILE);	// BCH: uppercase, since it ends up getting defined as a constant below
 	}
 	
 	defaults.setValue("OUTBASE", OUTDIR + "/out_" +	defaults.getValue("SEED"));
@@ -126,6 +122,6 @@ function (void)setupParams(object<Dictionary>$ defaults)
 	
 	// print out default values
 	catn("===========================");
-	catn("Model constants: " + defaults.serialize());
+	catn("Model constants: " + defaults.serialize("pretty"));	// BCH: "pretty" available in SLiM 4.2
 	catn("===========================");
 }
