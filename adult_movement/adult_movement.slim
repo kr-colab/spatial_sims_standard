@@ -1,26 +1,26 @@
 initialize() {
 	initializeSLiMModelType("nonWF");
 	initializeSLiMOptions(dimensionality="xy");
-	
+
 	// This model uses tree-sequence recording, but it is optional
 	initializeTreeSeq();
-	
+
 	defaults = Dictionary(
 		"SEED", getSeed(),
-		"SD", 0.3,         // sigma_D, dispersal distance
-		"SX", 0.3,         // sigma_X, interaction distance for measuring local density
-		"SM", 0.3,			 // sigma_M, mate choice distance
-		"SV", 0.0,			 // sigma_V, adult movement distance
-		"K", 5,            // carrying capacity per unit area
-		"LIFETIME", 4,     // average life span
-		"WIDTH", 25.0,     // width of the simulated area
-		"HEIGHT", 25.0,    // height of the simulated area
-		"RUNTIME", 200,    // total number of ticks to run the simulation for
-		"L", 1e8,          // genome length
-		"R", 1e-8,         // recombination rate
-		"MU", 0            // mutation rate
+		"SD", 0.3,	// sigma_D, dispersal distance
+		"SX", 0.3,	// sigma_X, interaction distance for measuring local density
+		"SM", 0.3,	// sigma_M, mate choice distance
+		"SV", 0.0,	// sigma_V, adult movement distance
+		"K", 5,	// carrying capacity per unit area
+		"LIFETIME", 4,	// average life span
+		"WIDTH", 25.0,	// width of the simulated area
+		"HEIGHT", 25.0,	// height of the simulated area
+		"RUNTIME", 200,	// total number of ticks to run the simulation for
+		"L", 1e8,	// genome length
+		"R", 1e-8,	// recombination rate
+		"MU", 0	// mutation rate
 		);
-	
+
 	// Set up parameters with a user-defined function
 	setupParams(defaults);
 	
