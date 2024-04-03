@@ -104,10 +104,6 @@ initialize() {
 	density_map = p1.defineSpatialMap("density_map", "xy", density_raw);
 	density_map.smooth(SX * 3, "n", SX);
 	defineGlobal("DENSITY_MAP", density_map);
-	
-	community.rescheduleScriptBlock(s1, ticks=WRITE_INDS);
-	community.rescheduleScriptBlock(s2, start=1, end=YEARS_N);
-	community.rescheduleScriptBlock(s3, ticks=YEARS_N);
 }
 
 1 first() {
@@ -164,7 +160,7 @@ early() {
 	}
 }
 
-s1 late() {
+WRITE_INDS late() {
 	lines = NULL;
 	for (i in p1.individuals) {
 		new_line = paste0(i.spatialPosition[0], "\t", i.spatialPosition[1], "\t", community.tick + 1935-1);
@@ -173,14 +169,14 @@ s1 late() {
 	writeFile(LOCATIONS, lines, append=T);
 }
 
-s2 late() {
+1:YEARS_N late() {
 	if (p1.individualCount < 10) {
 		catn("Population declined too much, quitting.");
 		sim.simulationFinished();
 	}
 }
 
-s3 late() {
+YEARS_N late() {
    sim.treeSeqOutput(OUTPATH, metadata=PARAMS);
 	sim.simulationFinished();
 }
@@ -192,9 +188,8 @@ function (void)setupParams(object<Dictionary>$ defaults)
 	defaults.addKeysAndValuesFrom(Dictionary("PARAMFILE", PARAMFILE, "OUTDIR", OUTDIR));
 	
 	if (fileExists(PARAMFILE)){
-		local_defaults = Dictionary(paste(readFile(PARAMFILE)));
-		defaults.addKeysAndValuesFrom(local_defaults);
-		defaults.setValue("read_from_paramfile", PARAMFILE);
+		defaults.addKeysAndValuesFrom(Dictionary(readFile(PARAMFILE)));
+		defaults.setValue("READ_FROM_PARAMFILE", PARAMFILE);
 	}
 	
 	defaults.setValue("OUTBASE", OUTDIR + "/out_" +	defaults.getValue("seed"));
@@ -209,6 +204,6 @@ function (void)setupParams(object<Dictionary>$ defaults)
 	
 	// print out default values
 	catn("===========================");
-	catn("Model constants: " + defaults.serialize());
+	catn("Model constants: " + defaults.serialize("pretty"));
 	catn("===========================");
 }
