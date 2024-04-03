@@ -7,36 +7,21 @@ initialize() {
 	
 	defaults = Dictionary(
 		"SEED", getSeed(),
-		// carrying capacity per unit area
-		"K", 5,
-		// average life span
-		"LIFETIME", 4,
-		// height of simulation map
-		"HEIGHT", 25,
-		// width of simulation map
-		"WIDTH", 25,
-		// total number of ticks to run the simulation for
-		"RUNTIME", 2000,
-		// genome length
-		"L", 1e8,
-		// recombination rate
-		"R", 1e-8,
-		// mutation rate
-		"MU", 0,
-		// selection coefficient for fecundity-based selection
-		"S_FEC", 0.0,
-		// selection coefficient for mortality-based selection
-		"S_MOR", 0.1,
-		// dominance coefficient for fecundity-based selection
-		"H_FEC", 0.5,
-		// dominance coefficient for mortality-based selection
-		"H_MOR", 0.5,
-		// how many ticks to run the simulation for before adding focal mutation
-		"BURNIN", 10,
-		// whether to stop the simulation once the mutation is fixed
-		"FIXSTOP", T,
-		// whether to restart the simulation if the mutation is lost
-		"RESTART", T
+		"K", 5,	// carrying capacity per unit area
+		"LIFETIME", 4,	// average life span
+		"HEIGHT", 25,	// height of simulation map
+		"WIDTH", 25,	// width of simulation map
+		"RUNTIME", 2000,	// total number of ticks to run the simulation for
+		"L", 1e8,	// genome length
+		"R", 1e-8,	// recombination rate
+		"MU", 0,	// mutation rate
+		"S_FEC", 0.0,	// selection coefficient for fecundity-based selection
+		"S_MOR", 0.1,	// selection coefficient for mortality-based selection
+		"H_FEC", 0.5,	// dominance coefficient for fecundity-based selection
+		"H_MOR", 0.5,	// dominance coefficient for mortality-based selection
+		"BURNIN", 10,	// how many ticks to run the simulation for before adding focal mutation
+		"FIXSTOP", T,	// whether to stop the simulation once the mutation is fixed
+		"RESTART", T	// whether to restart the simulation if the mutation is lost
 		);
 	
 	// Set up parameters with a user-defined function
@@ -63,11 +48,6 @@ initialize() {
 1 first() {
 	// initialize population
 	sim.addSubpop("p1", asInteger(K * WIDTH * HEIGHT));
-	
-	// schedule sim finish
-	community.rescheduleScriptBlock(s1, ticks=BURNIN:RUNTIME);
-	community.rescheduleScriptBlock(s2, ticks=BURNIN+1:RUNTIME);
-	community.rescheduleScriptBlock(s3, ticks=RUNTIME);
 	
 	// save population state for restarting sim if mutation is lost
 	if (RESTART){ sim.treeSeqOutput(OUTBASE+'_initial_state.trees'); }
@@ -99,7 +79,7 @@ late() {
 	}
 }
 
-s1 late() {
+BURNIN:RUNTIME late() {
 	// add beneficial mutation to individual
 	if (!mutationadded) {
 		newborns = p1.individuals[which(p1.individuals.age==0)];
@@ -111,7 +91,7 @@ s1 late() {
 	}
 }
 
-s2 early() {
+seq(BURNIN+1,RUNTIME) early() {
 	// restart sim if mutation gets lost
 	if (RESTART & mutationadded & sim.countOfMutationsOfType(m1)==0) {
 		//if (sim.countOfMutationsOfType(m1)==0) {
@@ -138,7 +118,7 @@ s2 early() {
 	}
 }
 
-s3 late() {
+RUNTIME late() {
 	catn("End of simulation (run time reached)");
 	sim.treeSeqOutput(OUTPATH, metadata=PARAMS);
 	sim.simulationFinished();
@@ -151,9 +131,8 @@ function (void)setupParams(object<Dictionary>$ defaults)
 	defaults.addKeysAndValuesFrom(Dictionary("PARAMFILE", PARAMFILE, "OUTDIR", OUTDIR));
 	
 	if (fileExists(PARAMFILE)) {
-		local_defaults = Dictionary(paste(readFile(PARAMFILE)));
-		defaults.addKeysAndValuesFrom(local_defaults);
-		defaults.setValue("read_from_paramfile", PARAMFILE);
+		defaults.addKeysAndValuesFrom(Dictionary(readFile(PARAMFILE)));
+		defaults.setValue("READ_FROM_PARAMFILE", PARAMFILE);
 	}
 	
 	defaults.setValue("OUTBASE", OUTDIR + "/out_" +	defaults.getValue("SEED"));
@@ -168,6 +147,6 @@ function (void)setupParams(object<Dictionary>$ defaults)
 	
 	// print out default values
 	catn("===========================");
-	catn("Model constants: " + defaults.serialize());
+	catn("Model constants: " + defaults.serialize("pretty"));
 	catn("===========================");
 }

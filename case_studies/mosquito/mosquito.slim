@@ -64,10 +64,7 @@ initialize() {
 	map = p1.defineSpatialMap("mapvals", "xy",
 		(K - K * (mapImage.floatK - min(mapImage.floatK))/(max(mapImage.floatK)-min(mapImage.floatK))),
 		valueRange = c(0, K), colors = c("black", "white"));
-	defineConstant("RIVER", map);
-	
-	community.rescheduleScriptBlock(s1, ticks=seq(RECORDTIME, RUNTIME, RECORDINTERVAL));
-	community.rescheduleScriptBlock(s2, ticks=RUNTIME);
+	defineConstant("RIVER", map);	
 }
 
 1 late(){
@@ -98,9 +95,7 @@ early() {
 	
 	// Adult movement
 	adults = p1.subsetIndividuals(minAge = MATURATIONTIME + 1);
-	pos = adults.spatialPosition;
-	pos = p1.pointDeviated(adults.size(), pos, "reprising", INF, "n", SV);
-	adults.setSpatialPosition(pos);
+	p1.deviatePositions(adults, "reprising", INF, "n", SV);
 	
 	// fitness depends on river map and river factor
 	// Rain factor increases carrying capacity everywhere by K at its peak	
@@ -125,7 +120,7 @@ early() {
 	adults.color = '#0000FF';
 }
 
-s1 late() {
+seq(RECORDTIME, RUNTIME, RECORDINTERVAL) late() {
 	lines = "population, x, y";
 	for (ind in p1.subsetIndividuals(minAge = MATURATIONTIME + 1))
 	{
@@ -144,7 +139,7 @@ s1 late() {
 		stop("Error writing csv file.");
 }
 
-s2 late() {
+RUNTIME late() {
 	catn("End of simulation (run time reached)");
 	sim.simulationFinished();
 }
@@ -156,9 +151,8 @@ function (void)setupParams(object<Dictionary>$ defaults)
 	defaults.addKeysAndValuesFrom(Dictionary("PARAMFILE", PARAMFILE, "OUTDIR", OUTDIR));
 	
 	if (fileExists(PARAMFILE)) {
-		local_defaults = Dictionary(paste(readFile(PARAMFILE)));
-		defaults.addKeysAndValuesFrom(local_defaults);
-		defaults.setValue("read_from_paramfile", PARAMFILE);
+		defaults.addKeysAndValuesFrom(Dictionary(readFile(PARAMFILE)));
+		defaults.setValue("READ_FROM_PARAMFILE", PARAMFILE);
 	}
 	
 	defaults.setValue("OUTBASE", OUTDIR + "/out_" +	defaults.getValue("seed"));
@@ -173,6 +167,6 @@ function (void)setupParams(object<Dictionary>$ defaults)
 	
 	// print out default values
 	catn("===========================");
-	catn("Model constants: " + defaults.serialize());
+	catn("Model constants: " + defaults.serialize("pretty"));
 	catn("===========================");
 }

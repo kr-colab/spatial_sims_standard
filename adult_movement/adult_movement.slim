@@ -7,30 +7,18 @@ initialize() {
 
 	defaults = Dictionary(
 		"SEED", getSeed(),
-		// sigma_D, dispersal distance
-		"SD", 0.3,
-		// sigma_X, interaction distance for measuring local density
-		"SX", 0.3,
-		// sigma_M, mate choice distance
-		"SM", 0.3,
-		// sigma_V, adult movement distance
-		"SV", 0.0,
-		// carrying capacity per unit area
-		"K", 5,
-		// average life span
-		"LIFETIME", 4,
-		// width of the simulated area
-		"WIDTH", 25.0,
-		// height of the simulated area
-		"HEIGHT", 25.0,
-		// total number of ticks to run the simulation for
-		"RUNTIME", 200,
-		// genome length
-		"L", 1e8,
-		// recombination rate
-		"R", 1e-8,
-		// mutation rate
-		"MU", 0
+		"SD", 0.3,	// sigma_D, dispersal distance
+		"SX", 0.3,	// sigma_X, interaction distance for measuring local density
+		"SM", 0.3,	// sigma_M, mate choice distance
+		"SV", 0.0,	// sigma_V, adult movement distance
+		"K", 5,	// carrying capacity per unit area
+		"LIFETIME", 4,	// average life span
+		"WIDTH", 25.0,	// width of the simulated area
+		"HEIGHT", 25.0,	// height of the simulated area
+		"RUNTIME", 200,	// total number of ticks to run the simulation for
+		"L", 1e8,	// genome length
+		"R", 1e-8,	// recombination rate
+		"MU", 0	// mutation rate
 		);
 
 	// Set up parameters with a user-defined function
@@ -63,16 +51,13 @@ initialize() {
 	sim.addSubpop("p1", asInteger(K * WIDTH * HEIGHT));
 	p1.setSpatialBounds(c(0, 0, WIDTH, HEIGHT));
 	p1.individuals.setSpatialPosition(p1.pointUniform(p1.individualCount));
-	community.rescheduleScriptBlock(s1, ticks=RUNTIME);
 }
 
 first() {
 	// adult movement (reflecting boundaries, Gaussian kernel with sigma_V)
 	if (SV > 0) {
 		inds = p1.individuals;
-		pos = inds.spatialPosition;
-		pos = p1.pointDeviated(inds.size(), pos, "reflecting", INF, "n", SV);
-		inds.setSpatialPosition(pos);
+		p1.deviatePositions(inds, "reflecting", INF, "n", SV);
 	}
 	// preparation for the reproduction() callback
 	i2.evaluate(p1);
@@ -87,9 +72,7 @@ reproduction() {
 early() {
 	// Disperse offspring
 	offspring = p1.subsetIndividuals(maxAge=0);
-	pos = offspring.spatialPosition;
-	pos = p1.pointDeviated(offspring.size(), pos, "reprising", INF, "n", SD);
-	offspring.setSpatialPosition(pos);
+	p1.deviatePositions(offspring, "reprising", INF, "n", SD);
 
 	// Measure local density and use it for density regulation
 	i1.evaluate(p1);
@@ -105,7 +88,7 @@ late() {
 	}
 }
 
-s1 late() {
+RUNTIME late() {
 	catn("End of simulation (run time reached)");
 	sim.treeSeqOutput(OUTPATH, metadata=PARAMS);
 	sim.simulationFinished();
@@ -118,9 +101,8 @@ function (void)setupParams(object<Dictionary>$ defaults)
 	defaults.addKeysAndValuesFrom(Dictionary("PARAMFILE", PARAMFILE, "OUTDIR", OUTDIR));
 	
 	if (fileExists(PARAMFILE)) {
-		local_defaults = Dictionary(paste(readFile(PARAMFILE)));
-		defaults.addKeysAndValuesFrom(local_defaults);
-		defaults.setValue("read_from_paramfile", PARAMFILE);
+		defaults.addKeysAndValuesFrom(Dictionary(readFile(PARAMFILE)));
+		defaults.setValue("READ_FROM_PARAMFILE", PARAMFILE);
 	}
 	
 	defaults.setValue("OUTBASE", OUTDIR + "/out_" +	defaults.getValue("SEED"));
@@ -135,6 +117,6 @@ function (void)setupParams(object<Dictionary>$ defaults)
 	
 	// print out default values
 	catn("===========================");
-	catn("Model constants: " + defaults.serialize());
+	catn("Model constants: " + defaults.serialize("pretty"));
 	catn("===========================");
 }

@@ -44,9 +44,8 @@ function (void)setupParams(object<Dictionary>$ defaults) {
     defaults.addKeysAndValuesFrom(Dictionary("PARAMFILE", PARAMFILE, "OUTDIR", OUTDIR));
 
     if (fileExists(PARAMFILE)) {
-        local_defaults = Dictionary(paste(readFile(PARAMFILE)));
-        defaults.addKeysAndValuesFrom(local_defaults);
-        defaults.setValue("read_from_paramfile", PARAMFILE);
+        defaults.addKeysAndValuesFrom(Dictionary(readFile(PARAMFILE)));
+        defaults.setValue("READ_FROM_PARAMFILE", PARAMFILE);
     }
 
     defaults.setValue("OUTBASE", OUTDIR + "/out_" + defaults.getValue("seed"));
@@ -60,7 +59,7 @@ function (void)setupParams(object<Dictionary>$ defaults) {
     }
     // print out default values
     catn("===========================");
-    catn("Model constants: " + defaults.serialize());
+    catn("Model constants: " + defaults.serialize("pretty"));
     catn("===========================");
 }
 
@@ -137,7 +136,6 @@ function (object) addMilkweed(void) {
 }
 
 ticks all 1 first() {
-    community.rescheduleScriptBlock(s1, ticks=RUN_LENGTH);
     milkweedData = addMilkweed();
     // Add the milkweed population.
     milkweed_plant.addSubpop("p1", size(milkweedData.getValue("xs")));
@@ -190,8 +188,7 @@ ticks all early() {
     }
 
     // Non-migratory butterfly dispersal and mortality.
-    new_positions = p4.pointDeviated(p4.individualCount, p4.individuals.spatialPosition, "reprising", INF, "n", DISPERSAL_SIGMA);
-    p4.individuals.setSpatialPosition(new_positions);
+    p4.deviatePositions(p4.individuals, "reprising", INF, "n", DISPERSAL_SIGMA);
     age_mortality = AGE_DEPENDENT_MORTALITY[p4.individuals.age];
     p4.individuals.fitnessScaling = pmax(0.0, 1.0 - age_mortality - WEEKLY_FLAT_MORTALITY);
 
@@ -243,7 +240,7 @@ ticks all late () {
     catn("    Migrators:    " + p5.individualCount);
 }
 
-ticks all s1 late() {
+ticks all RUN_LENGTH late() {
     // End of simulation.
     catn("End of simulation.");
     community.simulationFinished();
