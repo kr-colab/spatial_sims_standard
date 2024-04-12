@@ -1,3 +1,5 @@
+// BCH: This is a redesign of the nonspatial_selection model to simplify it.
+
 initialize() {
 	initializeSLiMModelType("nonWF");
 	initializeSLiMOptions(keepPedigrees=T);
@@ -37,13 +39,10 @@ initialize() {
 	setSeed(SEED);
 	
 	initializeMutationRate(MU);
-	initializeMutationType("m1", H_MOR, "f", S_MOR);
+	initializeMutationType("m1", H_MOR, "f", S_MOR).convertToSubstitution = T;
 	initializeGenomicElementType("g1", m1, 1.0);
 	initializeGenomicElement(g1, 0, L-1);
 	initializeRecombinationRate(R);
-	
-	// globals for mutation tracking
-	defineGlobal("mutationadded", F);
 }
 
 1 first() {
@@ -58,14 +57,44 @@ initialize() {
 	log = community.createLogFile(OUTBASE + '.log', logInterval=1);
 	log.addTick();
 	log.addSubpopulationSize(p1);
-	log.addCustomColumn('allele_freq', 'if (sim.countOfMutationsOfType(m1)==0) {return NAN;} else {return sim.mutationFrequencies(NULL);};');
+	log.addCustomColumn('allele_freq', 'return exists("MUT") ? sim.mutationFrequencies(NULL, MUT) else NAN;');
 	log.addCustomColumn('mean_offspring', 'mean(p1.lifetimeReproductiveOutput);');
 	log.addCustomColumn('mean_age', 'mean(p1.individuals.age);');
 }
 
-reproduction() {
-	// individual fitness based on mutation count
-	mutcount = sum(individual.genomes.countOfMutationsOfType(m1));
+// BCH: Best to reload in the same tick cycle stage you saved in, so this should be a first() event
+(BURNIN+1): first() {
+	// restart sim if mutation gets lost
+	if (RESTART & !MUT.isSegregating & !MUT.isFixed) {
+		deleteFile(OUTBASE + '.log');
+		catn(community.tick + " LOST -- RESTARTING");
+		sim.readFromPopulationFile(OUTBASE + '_initial_state.trees');
+	}
+	else if (MUT.isFixed) {
+		if (FIXSTOP) {
+			// end of simulation if fixed
+			catn("End of simulation (mutation fixed)");
+			sim.treeSeqOutput(OUTPATH, metadata=PARAMS);
+			sim.simulationFinished();
+		}
+		// BCH: This produces an error because s2 doesn't exist.  I'm not sure what the intention was here,
+		// but it seems to me this code can be removed.
+		//if (!mutationfixed) {
+		//	community.rescheduleScriptBlock(s2, ticks=community.tick + 1);
+		//	defineGlobal("mutationfixed", T);
+		//}
+	}
+}
+
+:BURNIN reproduction() {
+	// during burn-in, the introduced mutation does not yet exist
+	mate = subpop.sampleIndividuals(1);
+	subpop.addCrossed(individual, mate, count=rpois(1, FECUN));
+}
+
+(BURNIN+1): reproduction() {
+	// after burn-in, the introduced mutation affects fecundity
+	mutcount = sum(individual.genomes.containsMutations(MUT));
 	indiv_s = S_FEC * (H_FEC * asFloat(mutcount==1) + asFloat(mutcount==2));
 	mate = subpop.sampleIndividuals(1);
 	// BCH: Is the mean for rpois() below correct?  The formula is surprising to me.
@@ -83,45 +112,12 @@ late() {
 	}
 }
 
-BURNIN: late() {
-	// add beneficial mutation to individual
-	if (!mutationadded) {
-		newborns = p1.individuals[which(p1.individuals.age==0)];
-		target = sample(newborns.genomes, 1);
-		target.addNewDrawnMutation(m1, asInteger(L/2));
-		defineGlobal("mutationadded", T);
-		catn("Beneficial mutation added at tick " + community.tick);
-	}
-}
-
-// BCH: This event should be moved up above all the late() events.  In general,
-// it is much clearer if you put things in tick cycle order: first() events,
-// then reproduction() callbacks, then early() events, then late() events, etc.
-// That makes it so you can read the script from top to bottom and see the
-// order they will execute in a given tick.
-(BURNIN+1): early() {
-	// restart sim if mutation gets lost
-	if (RESTART & mutationadded & sim.countOfMutationsOfType(m1)==0) {
-		deleteFile(OUTBASE + '.log');
-		cat(community.tick);
-		cat("LOST -- RESTARTING\n");
-		sim.readFromPopulationFile(OUTBASE + '_initial_state.trees');
-		// BCH: There is no need to set the seed here; the random number
-		// sequence will differ anyway.  Changing the seed is not considered
-		// best practice unless you have a specific reason to do it.
-		// BCH: calling recalculateFitness() here is also unnecessary; the
-		// saved checkpoint is a neutral model anyway.
-		defineGlobal("mutationadded", F);
-	}
-	else if (sim.mutationFrequencies(NULL) == 1.0) {
-		if (FIXSTOP) {
-			// end of simulation if fixed
-			catn("End of simulation (mutation fixed)");
-			sim.treeSeqOutput(OUTPATH, metadata=PARAMS);
-			sim.simulationFinished();
-		}
-		// BCH: This produced an error because s2 doesn't exist.  I'm not sure what the intention was here.
-	}
+BURNIN late() {
+	// add beneficial mutation to individual and remember it as MUT
+	newborns = p1.individuals[which(p1.individuals.age==0)];
+	target = sample(newborns.genomes, 1);
+	defineGlobal("MUT", target.addNewDrawnMutation(m1, asInteger(L/2)));
+	catn("Beneficial mutation added at tick " + community.tick);
 }
 
 RUNTIME late() {

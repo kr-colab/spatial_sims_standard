@@ -4,22 +4,24 @@ initialize() {
 
 	// This model uses tree-sequence recording, but it is optional
 	initializeTreeSeq();
+	
 	// individuals are either male or female (dioecy)
 	initializeSex("A");
 	
 	defaults = Dictionary(
+		// BCH: fixed comment indents to line up; I'd suggest this as standard practice in all scripts
 		"SEED", getSeed(),
-		"SD", 0.3,	// sigma_D, dispersal distance
-		"SX", 0.3,	// sigma_X, interaction distance for measuring local density
-		"SM", 0.3,	// sigma_M, mate choice distance
-		"K", 10,	// carrying capacity per unit area
-		"LIFETIME", 4,	// average life span
-		"WIDTH", 25.0,	// width of the simulated area
-		"HEIGHT", 25.0,	// height of the simulated area
-		"RUNTIME", 200,	// total number of ticks to run the simulation for
-		"L", 1e8,	// genome length
-		"R", 1e-8,	// recombination rate
-		"MU", 0		// mutation rate
+		"SD", 0.3,       // sigma_D, dispersal distance
+		"SX", 0.3,       // sigma_X, interaction distance for measuring local density
+		"SM", 0.3,       // sigma_M, mate choice distance
+		"K", 10,         // carrying capacity per unit area
+		"LIFETIME", 4,   // average life span
+		"WIDTH", 25.0,   // width of the simulated area
+		"HEIGHT", 25.0,  // height of the simulated area
+		"RUNTIME", 200,  // total number of ticks to run the simulation for
+		"L", 1e8,        // genome length
+		"R", 1e-8,       // recombination rate
+		"MU", 0          // mutation rate
 		);
 
 	// Set up parameters with a user-defined function
@@ -38,11 +40,11 @@ initialize() {
 	initializeGenomicElementType("g1", m1, 1.0);
 	initializeGenomicElement(g1, 0, L-1);
 	initializeRecombinationRate(R);
-
+	
 	// spatial interaction for local density measurement
 	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=3 * SX);
 	i1.setInteractionFunction("n", 1, SX);
-
+	
 	// spatial interaction for mate choice
 	initializeInteractionType(2, "xy", reciprocal=T, maxDistance=3 * SM);
 	i2.setInteractionFunction("n", 1, SM);
@@ -68,6 +70,8 @@ reproduction(NULL, "F") {
 	mate = i2.drawByStrength(individual, 1);
 	if (mate.size())
 		// fecundity is doubled because only females reproduce
+		// BCH: Would it be better to use FECUN here, and define FECUN to be twice as large?
+		// BCH: After all, FECUN should be the actual fecundity in the model, it seems to me...
 		subpop.addCrossed(individual, mate, count = rpois(1, 2 * FECUN));
 }
 
