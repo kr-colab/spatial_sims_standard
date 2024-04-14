@@ -151,7 +151,7 @@ function (void)setupParams(object<Dictionary>$ defaults)
 		defaults.setValue("READ_FROM_PARAMFILE", PARAMFILE);
 	}
 	
-	defaults.setValue("OUTBASE", OUTDIR + "/out_" +	defaults.getValue("seed"));
+	defaults.setValue("OUTBASE", OUTDIR + "/out_" +	defaults.getValue("SEED"));
 	defaults.setValue("OUTPATH", defaults.getValue("OUTBASE") + ".trees");
 	
 	for (k in defaults.allKeys) {
