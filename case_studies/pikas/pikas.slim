@@ -1,116 +1,130 @@
 initialize() {
 	initializeSLiMModelType("nonWF");
-	initializeSLiMOptions(keepPedigrees = T, dimensionality="xy");
+	initializeSLiMOptions(keepPedigrees=T, dimensionality="xy");
 	initializeTreeSeq();
+	
 	defaults = Dictionary(
 		"SEED", getSeed(),
-		"SD", 93.20466, // sigma_D, dispersal distance
-		"SX", 93.20466, // sigma_X, interaction distance for measuring local density
-		"SM", 93.20466, // sigma_M, mate choice distance
-		"K", 2.5e-4, // carrying capacity per unit area
-		"LIFETIME", 3.25, // average life span
-		"WIDTH", 16299, // width of the simulated area
-		"HEIGHT", 16299, // height of the simulated area
-		"BURNIN", 0, // number of ticks before recording
-		"RUNTIME", 1400, // number of ticks to run the simulation for after burn-in
-		"L", 2e9, // genome length
-		"R", 1e-8, // recombination rate
-		"MU", 0, // mutation rate
-		"MAP_FILE", "./e_mat.png",
+		"SD", 93.20466,    // sigma_D, dispersal distance
+		"SX", 93.20466,    // sigma_X, interaction distance for measuring local density
+		"SM", 93.20466,    // sigma_M, mate choice distance
+		"K", 2.5e-4,       // carrying capacity per unit area
+		"LIFETIME", 3.25,  // average life span
+		"WIDTH", 16299,    // width of the simulated area
+		"HEIGHT", 16299,   // height of the simulated area
+		"BURNIN", 0,       // number of ticks before recording
+		"RUNTIME", 1400,   // number of ticks to run the simulation for after burn-in
+		"L", 2e9,          // genome length
+		"R", 1e-8,         // recombination rate
+		"MU", 0,           // mutation rate
+		"MAP_FILE", "./e_mat.png",		// BCH: perhaps this filename could be a bit less cryptic?  just saying :->
 		"ELEVATION_RANGE", c(7539, 13507) * 3.048e-4 // elevation range in ft from map legend -> converting to km
 		);
 	
 	// Set up parameters with a user-defined function
+	// BCH: changes here are just to match minimal.slim; not claiming the changes are any better than the original :->
 	setupParams(defaults);
 	
 	defineConstant("FECUN", 1 / LIFETIME);
-	defineConstant("RHO", FECUN/((1+FECUN) * K)); // constant in spatial competition function
+	defineConstant("RHO", FECUN / ((1 + FECUN) * K));
 	defineGlobal("PARAMS", defaults);
-
+	
 	setSeed(SEED);
 	
+	initializeMutationRate(MU);
 	initializeMutationType("m1", 0.5, "f", 0.0);
 	initializeGenomicElementType("g1", m1, 1.0);
 	initializeGenomicElement(g1, 0, L-1);
-	initializeMutationRate(MU);
 	initializeRecombinationRate(R);
 	
 	// elevation params
+	// BCH: I'd suggest using all caps for all defined globals and constants
+	// BCH: I notice the map has only a handful of discrete values.  Any chance we can get better (more fine-grained) elevation data?  Not a big deal, just would be nice... But maybe we're matching an existing paper/model here?  I forget...
 	defineConstant("elevation_map", Image(MAP_FILE));
 	defineGlobal("Elevation", elevation_map.floatK * (ELEVATION_RANGE[1]-ELEVATION_RANGE[0]) + ELEVATION_RANGE[0]);
 	defineGlobal("Temperature", -10 * Elevation + 37); // estimate temperature from elevation (Collados-Lara AJ et al., 2020)
 	
-	// spatial competition
-	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=SX * 3);
+	// spatial interaction for local density measurement (competition)
+	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=3 * SX);
 	i1.setInteractionFunction("n", 1, SX);
 	
-	// mate choice
-	initializeInteractionType(2, "xy", reciprocal=T, maxDistance=SM * 3);
+	// spatial interaction for mate choice
+	initializeInteractionType(2, "xy", reciprocal=T, maxDistance=3 * SM);
 	i2.setInteractionFunction("n", 1, SM);
 }
 
 1 first() {
 	sim.addSubpop("p1", asInteger(K * WIDTH * HEIGHT));
 	p1.setSpatialBounds(c(0, 0, WIDTH, HEIGHT));
-	p1.defineSpatialMap("elevation", "xy", elevation_map.floatK, interpolate=T, valueRange=c(0,1), colors=c("#0000FF", "#FFFFFF")); // this map is (only) for visualizing elevation in the GUI
+	
+	// this map is (only) for visualizing elevation in the GUI
+	p1.defineSpatialMap("elevation", "xy", elevation_map.floatK, interpolate=T, valueRange=c(0,1), colors=c("#0000FF", "#FFFFFF"));
+	
+	// this map is actually used by the model
+	// BCH: I notice that, because of the way the color scale is defined, you can't really see the warming temperatures
+	// BCH: in the GUI well, apart from the whole map just turning blue.  Would be good to make the valueRange here
+	// BCH: broader, and define colors for different temperature ranges even outside of the initial range.  Would be nice
+	// BCH: if, e.g., the map slowly turned from blue/white to shades of orange and red, or something...?
 	spatmap = p1.defineSpatialMap("Temperature", "xy", Temperature, interpolate=T, valueRange=c(0,1), colors=c("#FFFFFF", "#0000FF"));
 	defineGlobal("TEMPMAP", spatmap);	
+	
 	p1.individuals.setSpatialPosition(p1.pointUniform(p1.individualCount));
-	i1.evaluate(sim.subpopulations);	
 }
 
 first() {
-	// to be ready for mate choice
+	// preparation for the reproduction() callback
 	i2.evaluate(p1);
 }
 
 reproduction() {
 	// choose our nearest neighbor as a mate, within the max distance
 	mate = i2.drawByStrength(individual, 1);
-	if (mate.size()) {
-		nOff = rpois(1, FECUN);
-		subpop.addCrossed(individual, mate, count=nOff);
-	}
-	return;
+	if (mate.size())
+		subpop.addCrossed(individual, mate, count=rpois(1, FECUN));
 }
 
 early() {
 	// disperse offspring
-	offspring = p1.subsetIndividuals(maxAge = 0);
+	offspring = p1.subsetIndividuals(maxAge=0);
 	p1.deviatePositions(offspring, "reprising", INF, "n", SD);
 	
 	// update temperature (0.016 / year; and assuming ticks are years, here)
 	TEMPMAP.add(0.016); // increase global temperature
-
-	print("");
-	print(c("sim cycle:", sim.cycle, "Temperature:", TEMPMAP.range()));
-		
+	
+	catn("sim.cycle: " + sim.cycle + ", temperature range: " + paste(TEMPMAP.range()));
+	
 	// random noise: each year can be a 'hot' or 'cold' year 
+	// BCH: "s" here should be s defined constant, no?  "ST", perhaps?
 	s = 2; // between-year std dev
-	annual_stddev = rnorm(1,0,s);
-
+	annual_stddev = rnorm(1, 0, s);
+	
 	// calculate % habitable space,
 	temps = TEMPMAP.gridValues();
 	// without stochasticity
-	mydata = c(p1.individualCount, sum(temps > (-5.0 + 6.830664) & temps < (28 - 4.97887)) / length(temps));
+	mydata = c(p1.individualCount, mean(temps > (-5.0 + 6.830664) & temps < (28 - 4.97887)));
 	// or with stochasticity
-	// mydata = c(p1.individualCount, sum((temps + annual_stddev)>(-5.0 + 6.830664) & (temps + annual_stddev)<(28 - 4.97887)) / length(temps));
+	// mydata = c(p1.individualCount, mean((temps + annual_stddev)>(-5.0 + 6.830664) & (temps + annual_stddev)<(28 - 4.97887)));
 	writeFile(OUTDIR + "/pika_simdata.txt", paste(mydata, sep='\t'), append=T);
-
+	
+	// record strength of competition in the tagF
 	i1.evaluate(p1);
 	inds = p1.individuals;
 	competition = i1.localPopulationDensity(inds);
-	
-	// record strength of competition in the tagF
 	inds.tagF = competition;
 	fitness = 1 / (1 + RHO * competition);
 	
 	// kill indivs. outside optimal temperature range
-	locations = inds.spatialPosition;
 	// look up temperature from the map (permanent) add annual fluctuation defined earlier
-	temps = TEMPMAP.mapValue(locations) + annual_stddev;
-	fitness[temps < (-5.0 + 6.830664)
-	                | temps > (28 - 4.97887)] = 0.0;	                
+	// BCH: I notice that when this model runs, there are sudden mass die-offs where the range of the species
+	// BCH: suddenly pulls back.  I think it's due to this code.  Does it make sense to have a hard cutoff
+	// BCH: at a min/max temperature, where within that range fitness is due to competition only, and outside
+	// BCH: that range it abruptly cuts off to zero?  If that's pika physiology, then fine; or if we're just doing
+	// BCH: that for simplicity, that's fine too.  But I'd expect something more like dnorm() here, where there's an
+	// BCH: optimal temperature for pikas, and the further they get from that optimum, the lower their fitness is...?
+	// BCH: Seems like that would make the model feel more realistic, and it'd only be marginally more complex
+	// BCH: than this code is now...
+	temps = TEMPMAP.mapValue(inds.spatialPosition) + annual_stddev;
+	fitness[temps < (-5.0 + 6.830664) | temps > (28 - 4.97887)] = 0.0;	                
 	inds.fitnessScaling = fitness;
 }
 
@@ -119,12 +133,13 @@ early() {
 	//  green = many neighbors, few offspring so far
 	//  red = many offspring so far, few neighbors
 	//  yellow = many offspring so far, many neighbors
+	// BCH: Can this coloring scheme be made more useful?  When I run the model, almost everybody is just black,
+	// BCH: and I don't see any spatial structure to the color that is there, so... what is it supposed to be telling me?
 	max_n = max(1, p1.lifetimeReproductiveOutput);
 	max_f = max(0.01, p1.individuals.tagF);
 	max_a = max(p1.individuals.age);
-	for (ind in p1.individuals) {
+	for (ind in p1.individuals)
 		ind.color = rgb2color(c(ind.reproductiveOutput/max_n, ind.tagF/max_f, ind.age/max_a));
-	}
 }
 
 BURNIN + RUNTIME late() {
@@ -143,14 +158,14 @@ function (void)setupParams(object<Dictionary>$ defaults)
 		defaults.setValue("READ_FROM_PARAMFILE", PARAMFILE);
 	}
 	
-	defaults.setValue("OUTBASE", OUTDIR + "/out_" +	defaults.getValue("seed"));
+	defaults.setValue("OUTBASE", OUTDIR + "/out_" +	defaults.getValue("SEED"));
 	defaults.setValue("OUTPATH", defaults.getValue("OUTBASE") + ".trees");
 	
 	for (k in defaults.allKeys) {
 		if (!exists(k))
 			defineConstant(k, defaults.getValue(k));
 		else
-			defaults.setValue(k, executeLambda(paste(c(k, ";"), sep='')));
+			defaults.setValue(k, executeLambda(k + ";"));
 	}
 	
 	// print out default values
