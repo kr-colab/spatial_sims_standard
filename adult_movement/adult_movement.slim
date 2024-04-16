@@ -6,19 +6,20 @@ initialize() {
 	initializeTreeSeq();
 
 	defaults = Dictionary(
+		// BCH: fixed comment indents to line up; I'd suggest this as standard practice in all scripts
 		"SEED", getSeed(),
-		"SD", 0.3,	// sigma_D, dispersal distance
-		"SX", 0.3,	// sigma_X, interaction distance for measuring local density
-		"SM", 0.3,	// sigma_M, mate choice distance
-		"SV", 0.0,	// sigma_V, adult movement distance
-		"K", 5,	// carrying capacity per unit area
-		"LIFETIME", 4,	// average life span
-		"WIDTH", 25.0,	// width of the simulated area
-		"HEIGHT", 25.0,	// height of the simulated area
-		"RUNTIME", 200,	// total number of ticks to run the simulation for
-		"L", 1e8,	// genome length
-		"R", 1e-8,	// recombination rate
-		"MU", 0	// mutation rate
+		"SD", 0.3,       // sigma_D, dispersal distance
+		"SX", 0.3,       // sigma_X, interaction distance for measuring local density
+		"SM", 0.3,       // sigma_M, mate choice distance
+		"SV", 0.0,       // sigma_V, adult movement distance
+		"K", 5,          // carrying capacity per unit area
+		"LIFETIME", 4,   // average life span
+		"WIDTH", 25.0,   // width of the simulated area
+		"HEIGHT", 25.0,  // height of the simulated area
+		"RUNTIME", 200,  // total number of ticks to run the simulation for
+		"L", 1e8,        // genome length
+		"R", 1e-8,       // recombination rate
+		"MU", 0          // mutation rate
 		);
 
 	// Set up parameters with a user-defined function
@@ -55,10 +56,9 @@ initialize() {
 
 first() {
 	// adult movement (reflecting boundaries, Gaussian kernel with sigma_V)
-	if (SV > 0) {
-		inds = p1.individuals;
-		p1.deviatePositions(inds, "reflecting", INF, "n", SV);
-	}
+	if (SV > 0)
+		p1.deviatePositions(p1.individuals, "reflecting", INF, "n", SV);
+	
 	// preparation for the reproduction() callback
 	i2.evaluate(p1);
 }

@@ -2,54 +2,57 @@ initialize() {
 	initializeSLiMModelType("nonWF");
 	initializeSLiMOptions(dimensionality="xy");
 	initializeSex("A");
+	
 	defaults = Dictionary(
 		"SEED", getSeed(),
-		"SD", 1000., // sigma_D, dispersal distance (in meters)
-		"SX", 20., // sigma_X, interaction distance for measuring local density
-		"SM", 1000., // sigma_M, mate choice distance
-		"SV", 1000, // sigma_V, adult travel distance
-		"K", 0.004, // carrying capacity per unit area of larvae
-		"XMIN", -3.7 * 1000, // map left boundary
-		"XMAX", 0.9 * 1000, // map right boundary
-		"YMIN", 11.1 * 1000, // map bottom boundary
-		"YMAX", 13.2 * 1000, // map top boundary
+		"SD", 1000.0,             // sigma_D, dispersal distance (in meters)
+		"SX", 20.0,               // sigma_X, interaction distance for measuring local density
+		"SM", 1000.0,             // sigma_M, mate choice distance
+		"SV", 1000,               // sigma_V, adult travel distance
+		"K", 0.004,               // carrying capacity per unit area of larvae
+		"XMIN", -3.7 * 1000,      // map left boundary
+		"XMAX", 0.9 * 1000,       // map right boundary
+		"YMIN", 11.1 * 1000,      // map bottom boundary
+		"YMAX", 13.2 * 1000,      // map top boundary
 		"ADULTMORTALITY", 0.125,
-		"JUVMORTALITY", 0.05, // base mortality for larvae per day
-		"FECUN", 2., // average number of eggs per day per female adult
-		"MATURATIONTIME", 10, // minimum age (in days) when individuals can start mating
+		"JUVMORTALITY", 0.05,     // base mortality for larvae per day
+		"FECUN", 2.0,             // average number of eggs per day per female adult
+		"MATURATIONTIME", 10,     // minimum age (in days) when individuals can start mating
 		"RECORDTIME", 300,
 		"RECORDINTERVAL", 50,
 		"RUNTIME", 1000,
-		"L", 1e8, // genome length
-		"R", 1e-8, // recombination rate
-		"MU", 0, // mutation rate
+		"L", 1e8,                 // genome length
+		"R", 1e-8,                // recombination rate
+		"MU", 0,                  // mutation rate
 		"IMAGE_PATH", "./river_greyscale.png"
 		);
 		
 	// Set up parameters with a user-defined function
 	setupParams(defaults);
 	
+	// Set up constants that depend on externally defined parameters
 	defineConstant("WIDTH", XMAX - XMIN);
 	defineConstant("HEIGHT", YMAX - YMIN);
-	defineConstant("RHO", FECUN / 2 / ((1 + FECUN / 2) * K));
-	
-	defineGlobal("PARAMS", defaults);
+	defineConstant("RHO", (FECUN / 2) / ((1 + FECUN / 2) * K));
+	defineConstant("PARAMS", defaults);
 	
 	setSeed(SEED);
 	
+	// BCH: just changing to match minimal.slim...
+	// basic neutral genetics
+	initializeMutationRate(MU);
 	initializeMutationType("m1", 0.5, "f", 0.0);
 	initializeGenomicElementType("g1", m1, 1.0);
 	initializeGenomicElement(g1, 0, L-1);
-	initializeMutationRate(MU);
 	initializeRecombinationRate(R);
 	
 	// spatial competition
-	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=SX*3);
+	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=3 * SX);
 	i1.setInteractionFunction("n", 1, SX);
 	i1.setConstraints("both", maxAge=MATURATIONTIME);
 	
 	// dioecious mating
-	initializeInteractionType(2, "xy", reciprocal=T, maxDistance=SM*3);
+	initializeInteractionType(2, "xy", reciprocal=T, maxDistance=3 * SM);
 	i2.setInteractionFunction("n", 1, SM);
 	i2.setConstraints("receiver", sex="F", minAge=MATURATIONTIME+1);
 	i2.setConstraints("exerter", sex="M", minAge=MATURATIONTIME+1);
@@ -61,13 +64,11 @@ initialize() {
 	p1.individuals.setSpatialPosition(p1.pointUniform(p1.individualCount));
 	
 	mapImage = Image(IMAGE_PATH);
-	map = p1.defineSpatialMap("mapvals", "xy",
-		(K - K * (mapImage.floatK - min(mapImage.floatK))/(max(mapImage.floatK)-min(mapImage.floatK))),
+	map = p1.defineSpatialMap("mapvals", "xy", -mapImage.floatK,
 		valueRange = c(0, K), colors = c("black", "white"));
-	defineConstant("RIVER", map);	
-}
-
-1 late(){
+	map.rescale(0, K);
+	defineConstant("RIVER", map);
+	
 	log_file_title = OUTPATH + "_sim_log.txt";
 	log = community.createLogFile(log_file_title, logInterval=1);
 	log.addCycle();
@@ -99,15 +100,14 @@ early() {
 	
 	// fitness depends on river map and river factor
 	// Rain factor increases carrying capacity everywhere by K at its peak	
-	rain_factor = K * (-cos(community.tick / 365 * 2 * PI) +cos((community.tick-1)/365 * 2 * PI)) * 0.5;
+	rain_factor = K * (-cos(community.tick / 365 * 2 * PI) + cos((community.tick - 1) / 365 * 2 * PI)) * 0.5;
 	RIVER.add(rain_factor);
 	
 	// density-dependent fitness scaling only applies to larvae
 	i1.evaluate(p1);
 	juveniles = p1.subsetIndividuals(maxAge = MATURATIONTIME);
 	competition = i1.localPopulationDensity(juveniles);
-	location = juveniles.spatialPosition;
-	K_inds = RIVER.mapValue(location);
+	K_inds = RIVER.mapValue(juveniles.spatialPosition);
 	RHO_inds = RHO * K / K_inds;
 	juveniles.fitnessScaling = (1 - JUVMORTALITY) / (1 + RHO_inds * competition);
 	
@@ -122,18 +122,14 @@ early() {
 
 seq(RECORDTIME, RUNTIME, RECORDINTERVAL) late() {
 	lines = "population, x, y";
-	for (ind in p1.subsetIndividuals(minAge = MATURATIONTIME + 1))
-	{
-		pos = ind.spatialPosition;
-		coordline = paste0("1, ", pos[0], ", ", pos[1]);
-		lines = c(lines, coordline);
-	}
-	for (ind in p1.subsetIndividuals(maxAge = MATURATIONTIME))
-	{
-		pos = ind.spatialPosition;
-		coordline = paste0("2, ", pos[0], ", ", pos[1]);
-		lines = c(lines, coordline);
-	}
+	
+	// BCH: I believe this vectorized code does what the for loops did; apologies if I missed some subtlety...
+	adults = p1.subsetIndividuals(minAge = MATURATIONTIME + 1);
+	lines = c(lines, "1, " + adults.x + ", " + adults.y);
+	
+	juveniles = p1.subsetIndividuals(maxAge = MATURATIONTIME);
+	lines = c(lines, "2, " + juveniles.x + ", " + juveniles.y);
+	
 	csvfilename = OUTPATH + "_coordinates_tick_" + community.tick + ".csv";
 	if (!writeFile(csvfilename, lines))
 		stop("Error writing csv file.");
@@ -155,14 +151,14 @@ function (void)setupParams(object<Dictionary>$ defaults)
 		defaults.setValue("READ_FROM_PARAMFILE", PARAMFILE);
 	}
 	
-	defaults.setValue("OUTBASE", OUTDIR + "/out_" +	defaults.getValue("seed"));
+	defaults.setValue("OUTBASE", OUTDIR + "/out_" +	defaults.getValue("SEED"));
 	defaults.setValue("OUTPATH", defaults.getValue("OUTBASE") + ".trees");
 	
 	for (k in defaults.allKeys) {
 		if (!exists(k))
 			defineConstant(k, defaults.getValue(k));
 		else
-			defaults.setValue(k, executeLambda(paste(c(k, ";"), sep='')));
+			defaults.setValue(k, executeLambda(k + ";"));
 	}
 	
 	// print out default values
