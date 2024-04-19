@@ -19,6 +19,8 @@ initialize() {
 		"MU", 0,                                      // mutation rate
 		"MAP_FILE", "./elevation_map.png",
 		"ST", 2,                                      // between-year std dev
+		"MIN_T", -5,                                  // minimum pika survivable temperature
+		"MAX_T", 28,                                  // maximum pika survivable temperature
 		"ELEVATION_RANGE", c(7539, 13507) * 3.048e-4  // elevation range in ft from map legend -> converting to km
 		);
 	
@@ -93,33 +95,32 @@ early() {
 	// calculate % habitable space,
 	temps = TEMPMAP.gridValues();
 	// without stochasticity
-	mydata = c(p1.individualCount, mean(temps > (-5.0 + 6.830664) & temps < (28 - 4.97887)));
+	mydata = c(p1.individualCount, mean(temps > (MIN_T + 6.830664) & temps < (MAX_T - 4.97887)));
 	// or with stochasticity
 	//mydata = c(p1.individualCount, mean((temps + annual_stddev)>(-5.0 + 6.830664) & (temps + annual_stddev)<(28 - 4.97887)));
 	writeFile(OUTDIR + "/pika_simdata.txt", paste(mydata, sep='\t'), append=T);
 
-	// record strength of competition in the tagF
+	// calculate fitness
 	i1.evaluate(p1);
 	inds = p1.individuals;
 	competition = i1.localPopulationDensity(inds);
-	inds.tagF = competition;
 	fitness = 1 / (1 + RHO * competition);
-	
-	// kill indivs. outside optimal temperature range
 	temps = TEMPMAP.mapValue(inds.spatialPosition) + annual_stddev;
-	fitness[temps < (-5.0 + 6.830664) | temps > (28 - 4.97887)] = 0.0;	
+	optimum = (MAX_T - MIN_T)/2 + MIN_T;
+	s = 5;
+	norm = dnorm(optimum, optimum, s);
+	fitness = fitness * (dnorm(temps, optimum, s)/norm);
 	inds.fitnessScaling = fitness;
 }
 
 
 2: late() {
 	// color individuals in GUI: 
-	// darker = happier (closer to mean of habital temperature range)
+	// darker = happier (closer to mean of habitable temperature range)
 	// greener = stressed (further from optimal temperature)
-	optimum = (28 - -5)/2 + -5;
-	max_t = max(TEMPMAP.mapValue(p1.individuals.spatialPosition));
+	optimum = (MAX_T - MIN_T)/2 + MIN_T;
 	for (ind in p1.individuals) {
-		ind_score = abs(TEMPMAP.mapValue(ind.spatialPosition) - optimum) / ((28 - -5)/2);
+		ind_score = abs(TEMPMAP.mapValue(ind.spatialPosition) - optimum) / ((MAX_T - MIN_T)/10);
 	   ind.color = rgb2color(c(0, ind_score, 0));
 	}
 }
