@@ -18,9 +18,9 @@ initialize() {
 		"R", 1e-8,                                    // recombination rate
 		"MU", 0,                                      // mutation rate
 		"MAP_FILE", "./elevation_map.png",
-		"ST", 2,                                      // between-year std dev
 		"MIN_T", -5,                                  // minimum pika survivable temperature
 		"MAX_T", 28,                                  // maximum pika survivable temperature
+		"SEASONAL_VAR", 11.35,                        // seasonal variation (Table 4 from Collados-Lara et al: Jan. 17 = -1.0 C, July 19 = 21.7 C; 1/2 range = 11.35)
 		"ELEVATION_RANGE", c(7539, 13507) * 3.048e-4  // elevation range in ft from map legend -> converting to km
 		);
 	
@@ -51,6 +51,13 @@ initialize() {
 	// spatial interaction for mate choice
 	initializeInteractionType(2, "xy", reciprocal=T, maxDistance=3 * SM);
 	i2.setInteractionFunction("n", 1, SM);
+
+	// vector of temperature fluctuations
+	defineGlobal("FLUCTUATIONS", rep(0.0, RUNTIME));
+	s = 0.1; // fluctuation/shock
+	b1 = 0.98;
+	for (i in 1:(RUNTIME-1))
+		FLUCTUATIONS[i] = FLUCTUATIONS[i-1]*b1 + rnorm(1, 0, s);
 }
 
 1 first() {
@@ -87,17 +94,11 @@ early() {
 	// update temperature (0.016 / year; and assuming ticks are years, here)
 	TEMPMAP.add(0.016); // increase global temperature
 
-	catn("sim.cycle: " + sim.cycle + ", temperature range: " + paste(TEMPMAP.range()));
-		
-	// random noise: each year can be a 'hot' or 'cold' year 
-	annual_stddev = rnorm(1, 0, ST);
+	catn("sim.cycle: " + sim.cycle + ", temperature range: " + paste(TEMPMAP.range() + FLUCTUATIONS[sim.cycle]));
 
 	// calculate % habitable space,
 	temps = TEMPMAP.gridValues();
-	// without stochasticity
-	mydata = c(p1.individualCount, mean(temps > (MIN_T + 6.830664) & temps < (MAX_T - 4.97887)));
-	// or with stochasticity
-	//mydata = c(p1.individualCount, mean((temps + annual_stddev)>(-5.0 + 6.830664) & (temps + annual_stddev)<(28 - 4.97887)));
+	mydata = c(p1.individualCount, mean(temps > (MIN_T + SEASONAL_VAR) & temps < (MAX_T - SEASONAL_VAR)));
 	writeFile(OUTDIR + "/pika_simdata.txt", paste(mydata, sep='\t'), append=T);
 
 	// calculate fitness
@@ -105,8 +106,8 @@ early() {
 	inds = p1.individuals;
 	competition = i1.localPopulationDensity(inds);
 	fitness = 1 / (1 + RHO * competition);
-	temps = TEMPMAP.mapValue(inds.spatialPosition) + annual_stddev;
-	fitness[temps < (-5.0 + 11.35) | temps > (28 - 11.35)] = 0.0;  // Jan. 17 = -1.0 C, July 19 = 21.7 C (seasonal measurements from Collados-Lara et al); 1/2 range = 11.35
+	temps = TEMPMAP.mapValue(inds.spatialPosition) + FLUCTUATIONS[sim.cycle];
+	fitness[temps < (MIN_T + SEASONAL_VAR) | temps > (MAX_T - SEASONAL_VAR)] = 0.0;
 	inds.fitnessScaling = fitness;
 	
 }
