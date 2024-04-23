@@ -106,11 +106,9 @@ early() {
 	competition = i1.localPopulationDensity(inds);
 	fitness = 1 / (1 + RHO * competition);
 	temps = TEMPMAP.mapValue(inds.spatialPosition) + annual_stddev;
-	optimum = (MAX_T - MIN_T)/2 + MIN_T;
-	s = 5;
-	norm = dnorm(optimum, optimum, s);
-	fitness = fitness * (dnorm(temps, optimum, s)/norm);
+	fitness[temps < (-5.0 + 11.35) | temps > (28 - 11.35)] = 0.0;  // Jan. 17 = -1.0 C, July 19 = 21.7 C (seasonal measurements from Collados-Lara et al); 1/2 range = 11.35
 	inds.fitnessScaling = fitness;
+	
 }
 
 
