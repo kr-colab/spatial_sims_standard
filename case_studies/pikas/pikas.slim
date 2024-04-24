@@ -21,6 +21,8 @@ initialize() {
 		"MIN_T", -5,                                  // minimum pika survivable temperature
 		"MAX_T", 28,                                  // maximum pika survivable temperature
 		"SEASONAL_VAR", 11.35,                        // seasonal variation (Table 4 from Collados-Lara et al: Jan. 17 = -1.0 C, July 19 = 21.7 C; 1/2 range = 11.35)
+		"SHOCK", 0.1,                                 // annual temperature fluctuation shock parameter
+		"PERSISTENCE", 0.98,                          // annual temperature fluctuation persistence parameter
 		"ELEVATION_RANGE", c(7539, 13507) * 3.048e-4  // elevation range in ft from map legend -> converting to km
 		);
 	
@@ -54,10 +56,8 @@ initialize() {
 
 	// vector of temperature fluctuations
 	defineGlobal("FLUCTUATIONS", rep(0.0, RUNTIME));
-	s = 0.1; // fluctuation/shock
-	b1 = 0.98;
 	for (i in 1:(RUNTIME-1))
-		FLUCTUATIONS[i] = FLUCTUATIONS[i-1]*b1 + rnorm(1, 0, s);
+		FLUCTUATIONS[i] = FLUCTUATIONS[i-1]*PERSISTENCE + rnorm(1, 0, SHOCK);
 }
 
 1 first() {
