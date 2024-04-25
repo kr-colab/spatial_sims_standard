@@ -4,20 +4,20 @@ initialize() {
 	
 	defaults = Dictionary(
 		"SEED", getSeed(),
-		"SD", 0.3,		// sigma_D, dispersal distance
-		"SX", 0.3,		// sigma_X, interaction distance for measuring local density
-		"SM", 0.3,		// sigma_M, mate choice distance
-		"K", 5,			// carrying capacity per unit area
-		"LIFETIME", 4,		// average life span
-		"WIDTH", 25.0,		// width of the simulated area
-		"HEIGHT", 25.0,		// height of the simulated area
-		"RUNTIME", 300,		// total number of ticks to run the simulation for
-		"OUTPUTTIME", c(200, 250, 299),		// when to save density information
-		"L", 1e8,		// genome length
-		"R", 1e-8,		// recombination rate
-		"MU", 0,		// mutation rate
-		"MIN_L", 1.5,		// minimal map value
-		"MAX_L", 3.0,		// maximum map value
+		"SD", 0.3,                      // sigma_D, dispersal distance
+		"SX", 0.3,                      // sigma_X, interaction distance for measuring local density
+		"SM", 0.3,                      // sigma_M, mate choice distance
+		"K", 5,                         // carrying capacity per unit area
+		"LIFETIME", 4,                  // average life span
+		"WIDTH", 25.0,	                 // width of the simulated area
+		"HEIGHT", 25.0,                 // height of the simulated area
+		"RUNTIME", 300,                 // total number of ticks to run the simulation for
+		"OUTPUTTIME", c(200, 250, 299), // when to save density information
+		"L", 1e8,                       // genome length
+		"R", 1e-8,                      // recombination rate
+		"MU", 0,                        // mutation rate
+		"MIN_L", 1.5,                   // minimal map value
+		"MAX_L", 3.0,                   // maximum map value
 		"IMAGE_LOCATION", "./practice_maps/mountain_height.png"
 		);
 	
@@ -51,9 +51,11 @@ initialize() {
 	sim.addSubpop("p1", asInteger(K * WIDTH * HEIGHT));
 	p1.setSpatialBounds(c(0, 0, WIDTH, HEIGHT));
 	p1.individuals.setSpatialPosition(p1.pointUniform(p1.individualCount));
+	
 	mapImage = Image(IMAGE_LOCATION); // adding the image
-	map_vals = (1 - mapImage.floatK) *(MAX_L - MIN_L) + MIN_L; // defining values
-	map = p1.defineSpatialMap("world", "xy", map_vals, valueRange=c(MIN_L, MAX_L), colors=c('#FFFFFF', '#000000'));
+	map_vals = (1 - mapImage.floatK) * (MAX_L - MIN_L) + MIN_L; // defining values
+	map = p1.defineSpatialMap("world", "xy", map_vals, 
+	valueRange=c(MIN_L, MAX_L), colors=c('#FFFFFF', '#000000'));
 	defineConstant("MAP", map);
 }
 
@@ -78,7 +80,7 @@ early() {
 	inds = p1.individuals;
 	competition = i1.localPopulationDensity(inds);
 	local_l = MAP.mapValue(inds.spatialPosition);
-	inds.fitnessScaling = 1/(1 + (RHO * competition / local_l));
+	inds.fitnessScaling = 1 / (1 + (RHO * competition / local_l));
 }
 
 late() {
@@ -92,18 +94,18 @@ OUTPUTTIME late() {
 	// Output density and relative map value of each individual ("pixial", between 0 and 1)
 	inds = p1.individuals;
 	i1.evaluate(p1);
-	ind_den = i1.localPopulationDensity(inds);
+	densities = i1.localPopulationDensity(inds);
 	local_l = MAP.mapValue(inds.spatialPosition);
 	pixial = (local_l - MIN_L) / (MAX_L - MIN_L);
 
-	mytextfile = OUTBASE+"_by_ind_Ind_values_max_"+MAX_L+"_min_l_"+MIN_L +"_.text";
+	mytextfile = OUTBASE + "_by_ind_Ind_values_max_" + MAX_L + "_min_l_" + MIN_L + "_.text";
 	mytextfileinfo = NULL;
 	// printing out information at selected ticks
-	for(i in seq(0, len(pixial))) {
-		catn(pixial[i]);
+	for(pix in pixial, density in densities) {
+		catn(pix);
 
 	// writing info about density
-		mytextfileinfo = c(mytextfileinfo, paste0(sim.cycle + "," + ind_den[i] + "," + pixial[i]));
+		mytextfileinfo = c(mytextfileinfo, paste0(sim.cycle + "," + density + "," + pix));
 	}
 	writeFile(mytextfile, mytextfileinfo, append=T);
 }

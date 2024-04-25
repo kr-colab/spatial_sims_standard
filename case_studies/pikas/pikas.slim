@@ -55,9 +55,10 @@ initialize() {
 	i2.setInteractionFunction("n", 1, SM);
 
 	// vector of temperature fluctuations
-	defineGlobal("FLUCTUATIONS", rep(0.0, RUNTIME));
+	fluc = rep(0.0, RUNTIME);
 	for (i in 1:(RUNTIME-1))
-		FLUCTUATIONS[i] = FLUCTUATIONS[i-1]*PERSISTENCE + rnorm(1, 0, SHOCK);
+		fluc[i] = fluc[i-1]*PERSISTENCE + rnorm(1, 0, SHOCK);
+	defineConstant("FLUCTUATIONS", fluc);
 }
 
 1 first() {
