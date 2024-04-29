@@ -5,65 +5,61 @@ initialize() {
 	initializeTreeSeq();
 	
 	defaults = Dictionary(
-		"SEED", getSeed(),	                           		  // random seed
-		"ENVIRONMENTAL_FITNESS", T,                        	  // Whether environment impacts fitness or not                                                 
-		"USE_GRIDDENSITY", T,							      // Calculate density in grids (fast) or standard way (slow)
-		"ROW_DIM", 800, 	 							            	  // Defines size of the grid when using grid density
+		"SEED", getSeed(),
+		"ENVIRONMENTAL_FITNESS", T,	// whether environment impacts fitness or not                                                 
+		"USE_GRIDDENSITY", T,         // calculate density in grids (fast) or standard way (slow)
+		"ROW_DIM", 800,               // defines size of the grid when using grid density
 		"COL_DIM", 800,
 		"START_X", c(0.0, -457.5, -484.0, 39.1, -467.2, 58.6, -499.3, -481.2, 50.2, -485.4, -216.2, -364.0, -464.4, -389.1, -214.8, -459.6, -490.9, -477.0, -488.1, -530.0, 50.2, -468.6, 58.6, -214.8, -481.2, 48.8, -504.9, -499.3, -532.8, -486.8, -464.4, -388.8, -533.5, -454.7, -487.8, -475.0, 41.8, -363.3, 50.2, -465.1, -534.2, -504.9, -214.8, -389.1, -364.0, 50.2, -467.2, -509.1, -486.8, -479.8, -486.8, -499.3, -502.1, -478.4, -490.9, -484.0, -474.2, -460.3, -499.3, -499.3
-		),                                                 	  // invasion start locations (in km relative to the focal location)
+		),                            // invasion start locations (in km relative to the focal location)
 		"START_Y", c(0.0, 832.9, 811.9, -70.0, 823.5, -95.7, 1042.8, 970.5, -46.7, 962.4, 473.6, 695.2, 793.2, 702.2, 473.6, 830.5, 1028.8, 825.9, 1005.5, 1066.2, -46.7, 823.5, -91.0, 473.6, 970.5, -56.0, 1052.2, 1041.1, 1129.2, 1012.5, 793.2, 702.2, 1129.7, 776.9, 1006.7, 984.5, -95.7, 694.1, -46.7, 794.4, 1129.1, 1034.7, 473.6, 702.2, 692.9, -46.7, 823.5, 1068.5, 923.8, 975.2, 923.9, 1040.5, 1066.2, 979.8, 1028.8, 884.2, 828.2, 832.9, 1040.5, 1040.5
 		),
-		"FOUNDER_N", 10000,                               	     // Number of invasion founders
-		"MIN_ENV", 92.0,                                   	  // min and max values of environment
-		// (kg m^-2 , accumulated precipitation amount over 1 year) for each location on 
-		"MAX_ENV", 3945.0,                                 	  // map, corresponding to 0 and 1 on image, respectively
-		"MAP_XL", -3493.0,                                 	  // locations of map edges in kilometers, where toad invasion origin in set to 0,0
+		"FOUNDER_N", 10000,          // number of invasion founders
+		"MIN_ENV", 92.0,             // min and max values of environment map (kg m^-2, total precipitation
+		"MAX_ENV", 3945.0,           //    over 1 year), corresponding to 0 and 1 values in the map, respectively
+		"MAP_XL", -3493.0,           // locations of map edges in kilometers, where toad invasion origin is set to 0,0
 		"MAP_XH", 271.0,
 		"MAP_YL", -2865.0,
 		"MAP_YH", 2034.0,
-		"MAP_PATH", "../pipelines/data/australia_bio_12.png",   // Path to spatial map
-		"LANDMAP_PATH", "../pipelines/data/australia_land.png", // Path to spatial map of 'land' (black) vs 'not' (white)
-		"YEARS_N", 2022-1935+1,                            	  // simulation length
-		"SURVIVAL", 0.8,                                   	  // baseline survival probability		
-		"alpha", -18,                                      	  // intercept for p(survival) vs environment
-		"beta", 0.03,                                      	  // slope for p(survival) vs environment
-		"K",  1e3,                                         	  // local density (per sq. km)
-		"SD", 20.0,                                        	  // dispersal distance (km)
-		"SX", 20.0,                                       	     // spatial interaction distance (km)
-		"SM", 3.0,                                        	     // the mate choice distance (km)
-		"LIFETIME",  2.0,                                  	  // mean lifetime at stationarity
-		"DF", 3.0                                         	     // Degrees of freedom t dist, appraoches normal as DF -> INF
+		"MAP_PATH", "../pipelines/data/australia_bio_12.png",   // Path to PNG of 'environment' (rainfall)
+		"LANDMAP_PATH", "../pipelines/data/australia_land.png", // Path to PNG of 'land' (black) vs 'not' (white)
+		"YEARS_N", 2022-1935+1,      // simulation length
+		"SURVIVAL", 0.8,             // baseline survival probability		
+		"ALPHA", -18,                // intercept for p(survival) vs environment
+		"BETA", 0.03,                // slope for p(survival) vs environment
+		"K",  1e3,                   // local density (per sq. km)
+		"SD", 20.0,                  // dispersal distance (km)
+		"SX", 20.0,                  // spatial interaction distance (km)
+		"SM", 3.0,                   // the mate choice distance (km)
+		"LIFETIME",  2.0,            // mean lifetime at stationarity
+		"DF", 3.0                    // Degrees of freedom t dist, appraoches normal as DF -> INF
 		);
-		
+	
 	// Set up parameters with a user-defined function
 	setupParams(defaults);
 
-	//Define constants	
+	// Define constants	
 	defineConstant("LOCATIONS", OUTDIR + "/locations.txt");
-	defineConstant("WRITE_INDS", asInteger(seq(1, YEARS_N, length = 10)));
-	// Dimensions used for local density calculation	
-	defineConstant("DENSITY_GRID_DIMS", c(ROW_DIM, COL_DIM));   
-	// mean fecundity
-	defineConstant("FECUN", 1/LIFETIME);
-	// constant in spatial competition function
-	defineConstant("RHO", FECUN/((1+FECUN) * K));
-	defineGlobal("PARAMS", defaults);
+	defineConstant("WRITE_INDS", asInteger(seq(1, YEARS_N, length = 10)));	
+	defineConstant("DENSITY_GRID_DIMS", c(ROW_DIM, COL_DIM));   // dimensions used for local density calculation
+	defineConstant("FECUN", 1 / LIFETIME);
+	defineConstant("RHO", FECUN / ((1 + FECUN) * K));
+	defineConstant("PARAMS", defaults);
 	
 	// genome details
+	initializeMutationRate(0);
 	initializeMutationType("m1", 0.5, "f", 0.0);
 	initializeGenomicElementType("g1", m1, 1.0);
 	initializeGenomicElement(g1, 0, 1e2-1);
-	initializeMutationRate(0);
 	initializeRecombinationRate(0);
 	
-	// spatial competition
-	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=SX * 3);
-	i1.setInteractionFunction("n", 1.0, SX);
+	// spatial interaction for local density measurement (competition)
+	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=3 * SX);
+	i1.setInteractionFunction("n", 1, SX);
 	
-	// mate choice
-	initializeInteractionType(2, "xy", maxDistance=SM * 2, sexSegregation = "FM");
-	i2.setInteractionFunction("n", 1.0, SM);
+	// spatial interaction for mate choice
+	initializeInteractionType(2, "xy", maxDistance=2 * SM, sexSegregation = "FM");
+	i2.setInteractionFunction("n", 1, SM);
 }
 
 1 first() {
@@ -71,50 +67,46 @@ initialize() {
 	p1.setSpatialBounds(c(MAP_XL, MAP_YL, MAP_XH, MAP_YH));
 	
 	// start individuals near specific map locations
-	sample_idx = sample(0:(length(START_X)-1), FOUNDER_N, replace = T);
+	sample_idx = sample(seqAlong(START_X), FOUNDER_N, replace=T);
 	p1.individuals.x = START_X[sample_idx];
 	p1.individuals.y = START_Y[sample_idx];
 	
 	// smoothed map of land locations
 	// (we need it to be smoothed to be the denominator for density per unit area)
 	land_map = p1.defineSpatialMap("land_map", "xy",
-		1 - Image(LANDMAP_PATH).floatG,
-		interpolate=F,
+		1 - Image(LANDMAP_PATH).floatG, interpolate=F,
 		valueRange=c(0, 1), colors=c("white", "black"));
 	land_map.smooth(SX * 3, "n", SX);
-	defineGlobal("LAND_MAP", land_map);
+	defineConstant("LAND_MAP", land_map);
 	
 	// smoothed map of habitat (precipitation in this case)
 	// first scale map to lie between MIN_ENV and MAX_ENV
-	// then apply the transformation x -> 1/(1 + exp(-(alpha+beta*x)))
+	// then apply the transformation x -> 1/(1 + exp(-(ALPHA+BETA*x)))
 	precip_map = p1.defineSpatialMap("habitat", "xy",
-		Image(MAP_PATH).floatG,
-		interpolate=F,
+		Image(MAP_PATH).floatG, interpolate=F,
 		valueRange=c(0, 1), colors=c("black", "white"))
 		.rescale(MIN_ENV, MAX_ENV)
-		.multiply(beta).add(alpha).multiply(-1)
+		.multiply(BETA).add(ALPHA).multiply(-1)
 		.exp().add(1).power(-1);
-	defineGlobal("HABITAT_MAP", precip_map);
+	defineConstant("HABITAT_MAP", precip_map);
 	
 	// set up map we use to record density
 	density_raw = summarizeIndividuals(p1.individuals,
-		c(DENSITY_GRID_DIMS[0], DENSITY_GRID_DIMS[1]),
-		p1.spatialBounds, operation="individuals.size();",
-		empty=0.0, perUnitArea=T);
+		DENSITY_GRID_DIMS, p1.spatialBounds,
+		operation="individuals.size();", perUnitArea=T);
 	density_map = p1.defineSpatialMap("density_map", "xy", density_raw);
 	density_map.smooth(SX * 3, "n", SX);
-	defineGlobal("DENSITY_MAP", density_map);
+	defineConstant("DENSITY_MAP", density_map);
 }
 
 1 first() {
 	// initialize sample locations file
-	line = paste0("x\ty\tYear\tdatetime");
+	line = paste("x", "y", "Year", "datetime", sep="\t");
 	writeFile(LOCATIONS, line, append=F);
 }
 
 1: first() {
-	// adult dispersal over time: fat-tailed
-	//with habitat preference or not
+	// adult dispersal over time: fat-tailed with habitat preference or not
 	inds = p1.individuals;
 	dispersal_map = (ENVIRONMENTAL_FITNESS ? HABITAT_MAP else LAND_MAP);
 	new_locs = dispersal_map.sampleNearbyPoint(inds.spatialPosition, 10.0 * SD, "t", DF, SD);
@@ -122,16 +114,14 @@ initialize() {
 }
 
 first() {
-	i2.evaluate(p1); // to be ready for reproduction
+	// preparation for the reproduction() callback
+	i2.evaluate(p1);
 }
 
 reproduction(NULL, "F") {
 	mate = i2.nearestInteractingNeighbors(individual, 1);
-	nOff = rpois(1, FECUN);
-	if (mate.size()) {
-		subpop.addCrossed(individual, mate, count=nOff);
-	}
-	return;
+	if (mate.size())
+		subpop.addCrossed(individual, mate, count=rpois(1, FECUN));
 }
 
 early() {
@@ -142,30 +132,27 @@ early() {
 	if (USE_GRIDDENSITY) {
 		// get raw density and re-smooth for each tick
 		density_raw = summarizeIndividuals(inds,
-			c(DENSITY_GRID_DIMS[0], DENSITY_GRID_DIMS[1]),
-			p1.spatialBounds, operation="individuals.size();",
-			empty=0.0, perUnitArea=T);
+			DENSITY_GRID_DIMS, p1.spatialBounds,
+			operation="individuals.size();", perUnitArea=T);
 		DENSITY_MAP.changeValues(density_raw);
 		DENSITY_MAP.smooth(3 * SX, "n", SX);
-		density = p1.spatialMapValue(DENSITY_MAP, locations) / p1.spatialMapValue(LAND_MAP, locations);
+		density = DENSITY_MAP.mapValue(locations) / LAND_MAP.mapValue(locations);
 	} else {
-		density = i1.localPopulationDensity(inds) /  p1.spatialMapValue(LAND_MAP, locations);
-	}
-	inds.fitnessScaling = pmin(0.95, 1/(1 + RHO * density));
+		density = i1.localPopulationDensity(inds) /  LAND_MAP.mapValue(locations);
+	inds.fitnessScaling = pmin(0.95, 1 / (1 + RHO * density));
 	
 	// modify fitness based on environment
 	if (ENVIRONMENTAL_FITNESS) {
-		env_value = p1.spatialMapValue(HABITAT_MAP, locations);
+		env_value = HABITAT_MAP.mapValue(locations);
 		inds.fitnessScaling = inds.fitnessScaling * env_value;
 	}
 }
 
 WRITE_INDS late() {
-	lines = NULL;
-	for (i in p1.individuals) {
-		new_line = paste0(i.spatialPosition[0], "\t", i.spatialPosition[1], "\t", community.tick + 1935-1);
-		lines = c(lines, new_line);
-	}
+	inds = p1.individuals;
+	x = inds.x;
+	y = inds.y;
+	lines = x + "\t" + y + ("\t" + (community.tick + 1935-1));
 	writeFile(LOCATIONS, lines, append=T);
 }
 
@@ -187,19 +174,19 @@ function (void)setupParams(object<Dictionary>$ defaults)
 	if (!exists("OUTDIR")) defineConstant("OUTDIR", ".");
 	defaults.addKeysAndValuesFrom(Dictionary("PARAMFILE", PARAMFILE, "OUTDIR", OUTDIR));
 	
-	if (fileExists(PARAMFILE)){
+	if (fileExists(PARAMFILE)) {
 		defaults.addKeysAndValuesFrom(Dictionary(readFile(PARAMFILE)));
 		defaults.setValue("READ_FROM_PARAMFILE", PARAMFILE);
 	}
 	
-	defaults.setValue("OUTBASE", OUTDIR + "/out_" +	defaults.getValue("seed"));
+	defaults.setValue("OUTBASE", OUTDIR + "/out_" +	defaults.getValue("SEED"));
 	defaults.setValue("OUTPATH", defaults.getValue("OUTBASE") + ".trees");
 	
 	for (k in defaults.allKeys) {
 		if (!exists(k))
 			defineConstant(k, defaults.getValue(k));
 		else
-			defaults.setValue(k, executeLambda(paste(c(k, ";"), sep='')));
+			defaults.setValue(k, executeLambda(k + ";"));
 	}
 	
 	// print out default values
