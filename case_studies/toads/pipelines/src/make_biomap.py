@@ -12,6 +12,9 @@ import matplotlib.cm as cm
 import matplotlib.mlab as mlab
 from shapely.geometry import Polygon, LineString, Point, MultiPoint
 import rasterio
+from PIL import Image
+import os
+
 
 
 def parse_args(args):
@@ -166,7 +169,7 @@ if __name__ == "__main__":
     ax.set_xlim(x1, x2)
     ax.set_ylim(y1, y2)
     ax.margins(0)
-    plt.savefig(args.outfile, pad_inches=0, bbox_inches='tight')
+    plt.savefig(f"{args.outfile}_temp.png", pad_inches=0, bbox_inches='tight')
     plt.close()
 
     land_fig_name = args.outfile.split(".")[0].split("_")[0] + "_land.png"
@@ -176,7 +179,13 @@ if __name__ == "__main__":
     ax.set_xlim(x1, x2)
     ax.set_ylim(y1, y2)
     ax.margins(0)
-    plt.savefig(land_fig_name, pad_inches=0, bbox_inches='tight')
+    plt.savefig(f"{land_fig_name}_temp.png", pad_inches=0, bbox_inches='tight')
     plt.close()
 
+    #convert images to actual greyscale
+    Image.open(f"{args.outfile}_temp.png").convert('L').save(args.outfile)
+    os.remove(f"{args.outfile}_temp.png")
+    Image.open(f"{land_fig_name}_temp.png").convert('L').save(land_fig_name)
+    os.remove(f"{land_fig_name}_temp.png")
+    
 
