@@ -1,4 +1,3 @@
-// BCH: maybe rename this model to `toads.slim` to match the naming of the other case studies?
 initialize() {
 	initializeSLiMModelType("nonWF");
 	initializeSLiMOptions(dimensionality="xy");
@@ -39,7 +38,6 @@ initialize() {
 	// Set up parameters with a user-defined function
 	setupParams(defaults);
 	
-	// BCH: changes here are just to sync up with minimal.slim, not for any really strong reason
 	// Define constants	
 	defineConstant("LOCATIONS", OUTDIR + "/locations.txt");
 	defineConstant("WRITE_INDS", asInteger(seq(1, YEARS_N, length = 10)));	
@@ -73,15 +71,10 @@ initialize() {
 	p1.individuals.x = START_X[sample_idx];
 	p1.individuals.y = START_Y[sample_idx];
 	
-	// BCH: Why do these maps look stretched vertically in SLiMgui?  The image dimensions are
-	// BCH: 1550x1540, but the spatial bounds are 3764x4899, a different aspect ratio.  Is that
-	// BCH: intentional?  Is it a correction for map projection distortion or something?
-	// BCH: Whatever is going on with this, it should probably be explained in a comment here.
-	
+	// Map is slightly distorted in slim from method used to convert from lat long to km
 	// land locations, smoothed to be the denominator for density per unit area
-	// BCH: best to convert the PNG to grayscale and use floatK rather than floatG
 	land_map = p1.defineSpatialMap("land_map", "xy",
-		1 - Image(LANDMAP_PATH).floatG, interpolate=F,
+		1 - Image(LANDMAP_PATH).floatK, interpolate=F,
 		valueRange=c(0, 1), colors=c("white", "black"));
 	land_map.smooth(SX * 3, "n", SX);
 	defineConstant("LAND_MAP", land_map);
@@ -90,7 +83,7 @@ initialize() {
 	// first scale map to lie between MIN_ENV and MAX_ENV
 	// then apply the transformation x -> 1/(1 + exp(-(ALPHA+BETA*x)))
 	precip_map = p1.defineSpatialMap("habitat", "xy",
-		Image(MAP_PATH).floatG, interpolate=F,
+		Image(MAP_PATH).floatK, interpolate=F,
 		valueRange=c(0, 1), colors=c("black", "white"))
 		.rescale(MIN_ENV, MAX_ENV)
 		.multiply(BETA).add(ALPHA).multiply(-1)
@@ -157,7 +150,6 @@ early() {
 }
 
 WRITE_INDS late() {
-	// BCH: I think this should do the same thing as the for loop before, but much faster; but please test it
 	inds = p1.individuals;
 	x = inds.x;
 	y = inds.y;

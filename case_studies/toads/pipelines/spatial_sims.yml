@@ -6,8 +6,8 @@ channels:
 dependencies:
   - numpy
   - pandas
-  - snakemake
-  - slim
+  - snakemake==8.4.8
+  - slim>=4.2.1
   - msprime
   - tskit
   - ipykernel
