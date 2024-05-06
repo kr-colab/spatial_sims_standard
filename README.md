@@ -56,6 +56,6 @@ The scripts in each folder follow the same format but have some elements that a 
 
 ## Requirements
 
-You need [SLiM](https://messerlab.org/SLiM) version at least 4.1
+You need [SLiM](https://messerlab.org/SLiM) version at least 4.2
 (and the GUI is *highly* recommended).
 Python is used for set-up of some additional examples.
