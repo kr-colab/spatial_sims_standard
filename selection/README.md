@@ -31,6 +31,6 @@ reproduction(){
 }
 ```
 Here, `indiv_s` is either 0, `S_FEC * H_FEC`, or `S_FEC`, depending if the individual has 0, 1, or 2 copies of the `m1` mutation.
-This then modifies the expecgted number of offspring away from the baseline fecundity, `FECUN`
+This then modifies the expected number of offspring away from the baseline fecundity, `FECUN`
 (see the paper for an explanation of why this functional form is used).
 
