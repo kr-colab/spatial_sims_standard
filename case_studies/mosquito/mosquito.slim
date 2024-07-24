@@ -8,7 +8,7 @@ initialize() {
 		"SX", 20.0,           // sigma_X, interaction distance for measuring local density
 		"SM", 1000.0,         // sigma_M, mate choice distance
 		"SV", 1000.0,         // sigma_V, adult travel distance
-		"K", 0.004,           // carrying capacity per unit area of larvae
+		"K", 0.002,           // carrying capacity per unit area of larvae
 		"XMIN", -3.7 * 1000,  // map left boundary
 		"XMAX", 0.9 * 1000,   // map right boundary
 		"YMIN", 11.1 * 1000,  // map bottom boundary
@@ -32,7 +32,10 @@ initialize() {
 	// Set up constants that depend on externally defined parameters
 	defineConstant("WIDTH", XMAX - XMIN);
 	defineConstant("HEIGHT", YMAX - YMIN);
-	defineConstant("RHO", FECUN / 2 / ((1 + FECUN / 2) * K));	
+	// A_m is expected population density of adults (see Appendix D)
+	defineConstant("A_m", K * (1 - (ADULTMORTALITY / (FECUN / 2))^(1 / MATURATIONTIME)) / (1 - (ADULTMORTALITY / (FECUN / 2))^(1 - 1 / MATURATIONTIME)) * ADULTMORTALITY ^(-1 / MATURATIONTIME) * (FECUN / 2)^(1 - 1 / MATURATIONTIME));
+	// RHO is used to control density of juveniles (see Appendix D)
+	defineConstant("RHO", ((1 - JUVMORTALITY) * (FECUN / 2)^(1 / MATURATIONTIME) / ADULTMORTALITY ^ (1 / MATURATIONTIME) - 1) / (K + A_m * FECUN / 2));	
 	defineGlobal("PARAMS", defaults);
 	
 	setSeed(SEED);
@@ -62,16 +65,15 @@ initialize() {
 	p1.individuals.setSpatialPosition(p1.pointUniform(p1.individualCount));
 	
 	mapImage = Image(IMAGE_PATH);
-	map = p1.defineSpatialMap("mapvals", "xy", -mapImage.floatK,
-		valueRange = c(0, K), colors = c("black", "white"));
-	map.rescale(0, K);
+	map = p1.defineSpatialMap("mapvals", "xy", 1 - mapImage.floatK,
+		valueRange = c(0, 1), colors = c("black", "white"));
 	defineConstant("RIVER", map);
-	
-	log_file_title = OUTPATH + "_sim_log.txt";
+	log_file_title = OUTBASE + "_sim_log.txt";
 	log = community.createLogFile(log_file_title, logInterval=1);
 	log.addCycle();
-	log.addCustomColumn('adults', 'p1.subsetIndividuals(minAge=MATURATIONTIME+1).size();');
-	log.addCustomColumn('juveniles', 'p1.subsetIndividuals(maxAge=MATURATIONTIME).size();');
+	log.addCustomColumn('adults', 'p1.subsetIndividuals(minAge=MATURATIONTIME).size();');
+	log.addCustomColumn('juveniles', 'p1.subsetIndividuals(maxAge=MATURATIONTIME - 1).size();');
+	log.addCustomColumn('juveniles_density', 'i1.evaluate(p1);mean(i1.localPopulationDensity(p1.subsetIndividuals(maxAge=MATURATIONTIME - 1)));');
 }
 
 first() {
@@ -97,20 +99,26 @@ early() {
 	p1.deviatePositions(adults, "reprising", INF, "n", SV);
 	
 	// fitness depends on river map and river factor
-	// Rain factor increases carrying capacity everywhere by K at its peak	
-	rain_factor = K * (-cos(community.tick / 365 * 2 * PI) + cos((community.tick - 1)/365 * 2 * PI)) * 0.5;
+	// Rain factor increases carrying capacity everywhere by K at its peak
+	// (map value oscillates btw 0 and 1 outside river, and btw 1 and 2 in river)	
+	rain_factor = (-cos(community.tick / 365 * 2 * PI) + cos((community.tick - 1)/365 * 2 * PI)) * 0.5;
 	RIVER.add(rain_factor);
+	RIVER.add(abs(min(0.0, min(RIVER.gridValues())))); // prevent map value becoming negative
+	catn("min");
+	catn(min(RIVER.gridValues()));
+	catn("max");
+	catn(max(RIVER.gridValues()));
 	
 	// density-dependent fitness scaling only applies to larvae
 	i1.evaluate(p1);
-	juveniles = p1.subsetIndividuals(maxAge = MATURATIONTIME);
+	juveniles = p1.subsetIndividuals(maxAge = MATURATIONTIME - 1);
 	competition = i1.localPopulationDensity(juveniles);
-	K_inds = RIVER.mapValue(juveniles.spatialPosition);
-	RHO_inds = RHO * K / K_inds;
+	map_val_inds = RIVER.mapValue(juveniles.spatialPosition);
+	RHO_inds = RHO / map_val_inds;
 	juveniles.fitnessScaling = (1 - JUVMORTALITY) / (1 + RHO_inds * competition);
 	
 	// adults have fixed mortality independent of location
-	adults = p1.subsetIndividuals(minAge = MATURATIONTIME + 1);
+	adults = p1.subsetIndividuals(minAge = MATURATIONTIME);
 	adults.fitnessScaling = 1 - ADULTMORTALITY;
 	
 	// color the adults blue and juveniles red
@@ -120,7 +128,7 @@ early() {
 
 seq(RECORDTIME, RUNTIME, RECORDINTERVAL) late() {
 	lines = "population, x, y";
-	adults = p1.subsetIndividuals(minAge = MATRUATIONTIME + 1);
+	adults = p1.subsetIndividuals(minAge = MATURATIONTIME + 1);
 	num_adults = size(adults);
 	lines = c(lines, rep("1, ", num_adults) + adults.x + rep(", ", num_adults) + adults.y);	
 	
@@ -128,7 +136,7 @@ seq(RECORDTIME, RUNTIME, RECORDINTERVAL) late() {
 	num_juveniles = size(juveniles);
 	lines = c(lines, rep("2, ", num_juveniles) + juveniles.x + rep(", ", num_juveniles) + juveniles.y);
 
-	csvfilename = OUTPATH + "_coordinates_tick_" + community.tick + ".csv";
+	csvfilename = OUTBASE + "_coordinates_tick_" + community.tick + ".csv";
 	if (!writeFile(csvfilename, lines))
 		stop("Error writing csv file.");
 }
@@ -150,7 +158,6 @@ function (void)setupParams(object<Dictionary>$ defaults)
 	}
 	
 	defaults.setValue("OUTBASE", OUTDIR + "/out_" +	defaults.getValue("SEED"));
-	defaults.setValue("OUTPATH", defaults.getValue("OUTBASE") + ".trees");
 	
 	for (k in defaults.allKeys) {
 		if (!exists(k))
