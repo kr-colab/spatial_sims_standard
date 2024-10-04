@@ -44,6 +44,7 @@ The scripts in each folder follow the same format but have some elements that a 
 ## The examples:
 
 - [`minimal.slim`](minimal.html): a minimal example, that explains the general structure of the scripts.
+- [`minimal_high_density.slim`](minimal_high_density.html): essentially the same as `minimal.slim`, but with some computational tricks that let it scale to much higher density
 - [`maps/`](maps/README.html): use a simple map of a mountain to model heterogenous carrying capacity distribution in space
 - [`adult_movement/`](adult_movement/README.html) (Individuals continue to move around throughout its lifetime. Appropriate for animals, rather than plants)
 - [`mate_choice/`](mate_choice/README.html) (Dioecious population, offspring dispersed from female parents)

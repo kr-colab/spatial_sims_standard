@@ -1,0 +1,130 @@
+initialize() {
+	initializeSLiMModelType("nonWF");
+	initializeSLiMOptions(dimensionality="xy");
+	
+	defaults = Dictionary(
+		"SEED", getSeed(),
+		"SD", 0.3,         // sigma_D, dispersal distance
+		"SX", 0.3,         // sigma_X, interaction distance for measuring local density
+		"SM", 0.3,         // sigma_M, mate choice distance
+		"K", 50,           // carrying capacity per unit area
+		"LIFETIME", 4,     // average life span
+		"WIDTH", 25.0,     // width of the simulated area
+		"HEIGHT", 25.0,    // height of the simulated area
+		"RUNTIME", 200,    // total number of ticks to run the simulation for
+		"L", 1e8,          // genome length
+		"R", 1e-8,         // recombination rate
+		"MU", 0            // mutation rate
+		);
+	
+	// Set up parameters with a user-defined function
+	setupParams(defaults);
+	
+	// Set up constants that depend on externally defined parameters
+	defineConstant("FECUN", 1 / LIFETIME);
+	defineConstant("RHO", FECUN / ((1 + FECUN) * K));
+	defineConstant("PARAMS", defaults);
+	
+	setSeed(SEED);
+	
+	// basic neutral genetics
+	initializeMutationRate(MU);
+	initializeMutationType("m1", 0.5, "f", 0.0);
+	initializeGenomicElementType("g1", m1, 1.0);
+	initializeGenomicElement(g1, 0, L-1);
+	initializeRecombinationRate(R);
+	
+	// spatial interaction used to pick mates
+	initializeInteractionType(2, "xy", reciprocal=T, maxDistance=5/sqrt(K));
+	i2.setInteractionFunction("f", 1.0);
+}
+
+1 first() {
+	sim.addSubpop("p1", asInteger(K * WIDTH * HEIGHT));
+	p1.setSpatialBounds(c(0, 0, WIDTH, HEIGHT));
+	p1.individuals.setSpatialPosition(p1.pointUniform(p1.individualCount));
+	
+	// set up a map of density
+	grid_dims = asInteger(2 * (p1.spatialBounds[c(2,3)] - p1.spatialBounds[c(0,1)]) / min(SX, SM));
+	raw = summarizeIndividuals(p1.individuals, grid_dims, p1.spatialBounds,
+		operation="individuals.size();", perUnitArea=T);
+	raw_density_map = p1.defineSpatialMap("raw_density", "xy", raw);
+	density_map = p1.defineSpatialMap("density", "xy", raw);
+	density_map.smooth(SX * 3, "n", SX);
+	defineGlobal("GRID_DIMS", grid_dims);
+	defineGlobal("RAW_DENSITY", raw_density_map);
+	defineGlobal("DENSITY", density_map);
+}
+
+first() {
+	// preparation for the reproduction() callback
+	i2.evaluate(p1);
+	
+	// update map of density
+	raw = summarizeIndividuals(p1.individuals, GRID_DIMS, p1.spatialBounds,	operation="individuals.size();", perUnitArea=T);
+	RAW_DENSITY.changeValues(raw);
+}
+
+reproduction() {
+	mate_location = RAW_DENSITY.sampleNearbyPoint(individual.spatialPosition, 3 * SM, "n", SM);
+	mate = i2.nearestNeighborsOfPoint(mate_location, p1, 1);
+	if (mate.size())
+		subpop.addCrossed(individual, mate, count=rpois(1, FECUN));
+}
+
+early() {
+	// update map of density
+	raw = summarizeIndividuals(p1.individuals, GRID_DIMS, p1.spatialBounds,	operation="individuals.size();", perUnitArea=T);
+	DENSITY.changeValues(raw);
+	DENSITY.smooth(SX * 3, "n", SX);
+}
+
+early() {
+	// Disperse offspring
+	offspring = p1.subsetIndividuals(maxAge=0);
+	p1.deviatePositions(offspring, "reprising", INF, "n", SD);
+	
+	// Measure local density and use it for density regulation
+	inds = p1.individuals;
+	competition = p1.spatialMapValue(DENSITY, inds.spatialPosition);
+	inds.fitnessScaling = 1 / (1 + RHO * competition);
+}
+
+late() {
+	if (p1.individualCount == 0) {
+		catn("Population went extinct! Ending the simulation.");
+		sim.simulationFinished();
+	}
+}
+
+RUNTIME late() {
+	catn("End of simulation (run time reached)");
+	sim.simulationFinished();
+}
+
+function (void)setupParams(object<Dictionary>$ defaults)
+{
+	if (!exists("PARAMFILE")) defineConstant("PARAMFILE", "./params.json");
+	if (!exists("OUTDIR")) defineConstant("OUTDIR", ".");
+	defaults.addKeysAndValuesFrom(Dictionary("PARAMFILE", PARAMFILE, "OUTDIR", OUTDIR));
+	
+	if (fileExists(PARAMFILE)) {
+		defaults.addKeysAndValuesFrom(Dictionary(readFile(PARAMFILE)));
+		defaults.setValue("READ_FROM_PARAMFILE", PARAMFILE);
+	}
+	
+	defaults.setValue("OUTBASE", OUTDIR + "/out_" +	defaults.getValue("SEED"));
+	defaults.setValue("OUTPATH", defaults.getValue("OUTBASE") + ".trees");
+	
+	for (k in defaults.allKeys) {
+		if (!exists(k))
+			defineConstant(k, defaults.getValue(k));
+		else
+			defaults.setValue(k, executeLambda(k + ";"));
+	}
+	
+	// print out default values
+	catn("===========================");
+	catn("Model constants: " + defaults.serialize("pretty"));
+	catn("===========================");
+}
