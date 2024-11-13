@@ -1,0 +1,146 @@
+initialize() {
+	
+	initializeSLiMModelType("nonWF");
+	initializeSLiMOptions(keepPedigrees=T, dimensionality="xy");
+	//initializeTreeSeq();  
+	
+	defaults = Dictionary(
+		"SEED", getSeed(),
+		"SD", 0.5,                             // sigma_D, dispersal distance
+		"SX", 0.3,                             // sigma_C, competition distance parameter 
+		"SM", 0.3,                             // sigma_M, mate choice distance parameter
+		"SK", 0.7,                             // sigma_K, standard deviation of the fitness function
+		"K", 100,                              // carrying capacity per unit area
+		"M", 1e-8,                             // mutation rate
+		"LIFETIME", 4,                         // average life span
+		"WIDTH", 5.0,                          // width of the simulated area
+		"HEIGHT", 5.0,                         // height of the simulated area
+		"RUNTIME", 10000,                      // total number of ticks to run the simulation for 
+		"env_image", "./LAimg_greyscale.png",  // image representing environmental gradient
+		"R", 1e-8                              // recombination rate
+		);
+	
+	// Set up parameters with a user-defined function
+	setupParams(defaults);
+	
+	initializeMutationRate(c(0.0, M, 0.0), c(4e5 - 1, 6e5 - 1, 1e6 - 1));
+	initializeMutationType("m1", 0.0, "f", 0.0); // neutral
+	initializeMutationType("m2", 0.5, "n", 0.0, 0.05); // QTL
+	m2.convertToSubstitution = F;
+	
+	// Set up constants that depend on externally defined parameters
+	defineConstant("DEFAULTS", defaults);
+	defineConstant("FECUN", 1 / LIFETIME);
+	defineConstant("RHO", FECUN / ((1 + FECUN) * K));
+	defineConstant("PARAMS", defaults);
+	
+	initializeGenomicElementType("g0", m2, 1); // id, mutationtype, proportion 
+	initializeGenomicElementType("g1", m2, 1); // id, mutationtype, proportion 
+	initializeGenomicElement(g0, 0, 4e5 - 1);
+	initializeGenomicElement(g1, 4e5, 6e5 - 1);
+	initializeGenomicElement(g0, 6e5, 1e6 - 1);
+	initializeRecombinationRate(R);
+	
+	// competition
+	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=SX * 3);
+	i1.setInteractionFunction("n", 1.0, SX);
+	
+	// mate choice
+	initializeInteractionType(2, "xy", reciprocal=T, maxDistance=SM * 3);
+	i2.setInteractionFunction("n", 1.0, SM);
+}
+
+mutationEffect(m2) { return 1.0; }
+1 first() {
+	sim.addSubpop("p1", asInteger(K * WIDTH * HEIGHT));
+	p1.setSpatialBounds(c(0.0, 0.0, WIDTH, HEIGHT));
+	p1.individuals.setSpatialPosition(p1.pointUniform(p1.individualCount));
+	p1.individuals.z = 0.0;
+	mapImage = Image(env_image);
+	
+	// mapImage.floatK for greyscale images; greyscale is recommended.
+	map = p1.defineSpatialMap("map1", "xy", 1.0 - mapImage.floatK,
+		valueRange=c(0.0, 1.0), colors=c("red", "yellow"))
+		.rescale(-1, 1);
+	defineConstant("OPTIMUM", map);
+}
+
+early() {
+	// Disperse offspring
+	offspring = p1.subsetIndividuals(maxAge=0);
+	p1.deviatePositions(offspring, "reprising", INF, "n", SD);
+	
+	// Measure local density and use it for density regulation
+	i1.evaluate(p1);
+	inds = sim.subpopulations.individuals;
+	competition = i1.localPopulationDensity(inds);
+	inds.fitnessScaling = 1 / (1 + RHO * competition);
+	
+	// construct phenotypes and fitness effects from QTLs
+	phenotypes = inds.sumOfMutationsOfType(m2);
+	locations = inds.spatialPosition;
+	optima = OPTIMUM.mapValue(locations);
+	
+	qtl_fit = dnorm(phenotypes, optima, SK);
+	qtl_opt = dnorm(0.0, 0.0, SK);
+	qtl_fit = qtl_fit/qtl_opt;
+	
+	inds.fitnessScaling = inds.fitnessScaling * qtl_fit;
+	
+	// color individuals according to phenotype
+	inds.color = OPTIMUM.mapColor(phenotypes);
+	
+	if (p1.individualCount == 0) {
+		catn("Population went extinct! Ending the simulation.");
+		sim.simulationFinished();
+	}
+}
+
+first() {
+	// preparation for the reproduction() callback
+	i2.evaluate(p1);
+}
+
+reproduction() {
+	litterSize = rpois(1, FECUN);
+	if (litterSize > 0){
+		mate = i2.drawByStrength(individual, 1);
+		if (mate.size())
+			subpop.addCrossed(individual, mate, count=litterSize);
+	}
+}
+
+RUNTIME late() {
+	// assign values to be preserved
+	inds = sortBy(sim.subpopulations.individuals, "pedigreeID");
+	phenotypes = inds.sumOfMutationsOfType(m2);
+	locations = inds.spatialPosition;
+	optima = OPTIMUM.mapValue(locations);
+	
+	// record values and pedigree IDs in metadata
+	metadataDict = Dictionary("optima", optima, "phenotypes", phenotypes, "ids", inds.pedigreeID, "defaults", DEFAULTS);
+	//sim.treeSeqOutput("./localadaptationSLiM.trees", metadata=metadataDict);
+	sim.simulationFinished();
+}
+
+function (void)setupParams(object<Dictionary>$ defaults)
+{
+	if (!exists("PARAMFILE")) defineConstant("PARAMFILE", "./params.json");
+	if (!exists("OUTDIR")) defineConstant("OUTDIR", ".");
+	defaults.addKeysAndValuesFrom(Dictionary("PARAMFILE", PARAMFILE, "OUTDIR", OUTDIR));
+	
+	if (fileExists(PARAMFILE)) {
+		defaults.addKeysAndValuesFrom(Dictionary(readFile(PARAMFILE)));
+		defaults.setValue("READ_FROM_PARAMFILE", PARAMFILE);
+	}
+	
+	defaults.setValue("OUTBASE", OUTDIR + "/out_" + defaults.getValue("SEED"));
+	defaults.setValue("OUTPATH", defaults.getValue("OUTBASE") + ".trees");
+	
+	for (k in defaults.allKeys) {
+		if (!exists(k))
+			defineConstant(k, defaults.getValue(k));
+		else
+			defaults.setValue(k, executeLambda(k + ";"));
+	}
+}
